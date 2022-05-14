@@ -659,6 +659,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         Royalty storage _royalty = nftRoyalty[platformLazyNFT][_tokenId];
         _royalty.royaltyOwner = _royaltyOwner;
         _royalty.royaltyPercentage = _royaltyPercentage;
+        _royalty.activated= true;
     }
 
     function _isAuctionOngoing(address _nftContractAddress, uint256 _tokenId)
@@ -1422,7 +1423,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
                 totalAmount
             );
         } else {
-            uint totalAmount = msg.value;
+            uint totalAmount = (msg.value) + _highestBid;
             // 1. Cut platform fees from the buyer
             uint256 platformFees = (_highestBid * (platformPercentage)) /
                 (10000);
@@ -1536,7 +1537,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         ].ERC20Token;
         require(_nftHighestBid > 0, "No bid has been made");
         uint256 platformFees = (_nftHighestBid * (platformPercentage)) / (10000);
-        uint256 totalPayable = _nftHighestBid + platformFees;
+        uint256 totalPayable = platformFees;
         if (
             nftRoyalty[_nftContractAddress][_tokenId].activated
         ) {
@@ -1554,8 +1555,6 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         } else {
             require(msg.value >= totalPayable, "Must be greater than NFT cost");
         }
-
-
         _transferNftAndPaySeller(_nftContractAddress, _tokenId);
     }
 
