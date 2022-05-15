@@ -1099,7 +1099,7 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
 
 // File: contracts/ERC1155.sol
 
-contract ClubVirtual1155 is ERC1155 {
+contract ClubVirtual is ERC1155 {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIds;
 

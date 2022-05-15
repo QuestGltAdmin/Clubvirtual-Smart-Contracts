@@ -1,8 +1,3 @@
-// We require the Hardhat Runtime Environment explicitly here. This is optional
-// but useful for running the script in a standalone fashion through `node <script>`.
-//
-// When running the script with `npx hardhat run <script>` you'll find the Hardhat
-// Runtime Environment's members available in the global scope.
 const hre = require("hardhat");
 
 async function main() {
@@ -29,8 +24,6 @@ async function main() {
   console.log("NormalNFT Contract deployed to:", normalNFT.address);
   console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
-  
-
   //  3. MetaCricket ERC20
   const LazyNFT = await ethers.getContractFactory("ClubVirtualLazyNFT");
   const lazyNFT = await LazyNFT.deploy(deployer.address, markeplace.address, 100, deployer.address);
@@ -39,7 +32,6 @@ async function main() {
 
   console.log("LazyNFT Token Contract deployed to:", lazyNFT.address);
   console.log("Remaining balance ", (await deployer.getBalance())/1e18);
-
 
   //  4. Marketplace Contract: Auction & Buy/Sell
   const ClubVirtual1155 = await ethers.getContractFactory("ClubVirtual1155");
@@ -50,12 +42,9 @@ async function main() {
   console.log("ERC1155 Contract deployed to:", clubVirtual1155.address);
   console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
-
   const initialize= markeplace.initialize(normalNFT.address, lazyNFT.address, clubVirtual1155.address)
   console.log("contract initilize()", initialize);
   console.log("Remaining balance ", (await deployer.getBalance())/1e18);
-
-  
 }
 
 main().catch((error) => {

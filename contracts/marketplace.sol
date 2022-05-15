@@ -210,6 +210,20 @@ interface IERC721 is IERC165 {
         uint256 tokenId
     ) external;
 
+    function contractSafeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        uint256 tokenAmount
+    ) external;
+
+    function transferFrom(
+        address from , 
+        address to , 
+        uint256 tokenId, 
+        uint256 amountoftoken
+    ) external;
+
     /**
      * @dev Transfers `tokenId` token from `from` to `to`.
      *
@@ -471,6 +485,8 @@ contract NFTAuction is Ownable, ReentrancyGuard {
     mapping(address => uint256) public failedTransferCredits;
     mapping(address => mapping(uint256 => Royalty)) public nftRoyalty;
     mapping(address => mapping(uint256 => Proposal)) public buyProposal;
+    mapping(address => mapping(uint256 => ERC1155Sale)) public nftContract1155Sale;
+
 
     struct Auction {
         //map token ID to
@@ -504,6 +520,15 @@ contract NFTAuction is Ownable, ReentrancyGuard {
     struct Proposal{
         address buyer;
         uint256 price;
+    }
+
+    struct ERC1155Sale{
+        address nftSeller;
+        address ERC20Token;
+        uint32 ownerPercentage;
+        uint32 platformPercentage;
+        uint256 tokenAmount;
+        uint256 buyNowPrice;
     }
 
     modifier minimumBidNotMade(address _nftContractAddress, uint256 _tokenId) {
@@ -1107,6 +1132,131 @@ contract NFTAuction is Ownable, ReentrancyGuard {
                 _royaltyPercentage
             );
         }
+    }
+
+    function createSaleERC1155(
+        uint256 _tokenId,
+        uint256 _amountOfTokens,
+        uint256 _price,
+        address _ERC20Token,
+        uint32 _ownerPercentage,
+        uint32 _platformPercentage,
+        uint32 _royaltyPercentage
+    ) external{
+        // checks
+        require(_price > 0, "Price less than 0");
+        // Transfer tokens to this contract
+        IERC721(platformERC1155NFT).contractSafeTransferFrom(
+            msg.sender,
+            address(this),
+            _tokenId,
+            _amountOfTokens
+        ); 
+        // setup sale
+        ERC1155Sale storage erc1155Sale= nftContract1155Sale[platformERC1155NFT][_tokenId];
+        erc1155Sale.tokenAmount= _amountOfTokens;
+        erc1155Sale.nftSeller= msg.sender;
+        erc1155Sale.buyNowPrice= _price;
+        erc1155Sale.ERC20Token= _ERC20Token;
+        erc1155Sale.ownerPercentage= _ownerPercentage;
+        erc1155Sale.platformPercentage= _platformPercentage;
+        
+        if (
+            nftRoyalty[platformERC1155NFT][_tokenId].royaltyOwner ==
+            address(0)
+        ) {
+            nftRoyalty[platformERC1155NFT][_tokenId].royaltyOwner = msg
+                .sender;
+            nftRoyalty[platformERC1155NFT][_tokenId]
+                .royaltyPercentage = _royaltyPercentage;
+        }
+    }
+
+    function buyERC1155NFT( 
+        uint256 _tokenId
+    ) public payable nonReentrant{
+        address seller = nftContract1155Sale[platformERC1155NFT][_tokenId]
+            .nftSeller;
+        require(msg.sender != seller, "Seller cannot buy own NFT");
+        uint256 buyNowPrice = nftContract1155Sale[platformERC1155NFT][_tokenId]
+            .buyNowPrice;
+        uint32 platformPercentage= nftContract1155Sale[platformERC1155NFT][_tokenId]
+            .platformPercentage;
+        uint256 platformFees = (buyNowPrice * (platformPercentage)) / (10000);
+        uint256 totalPayable = buyNowPrice + platformFees;
+        uint royaltyAmount;
+        if (
+            nftRoyalty[platformERC1155NFT][_tokenId].activated
+        ) {
+            uint _royaltyPercentage = nftRoyalty[platformERC1155NFT][_tokenId]
+                .royaltyPercentage;
+            royaltyAmount = (buyNowPrice * (_royaltyPercentage)) / (10000);
+            totalPayable += royaltyAmount;
+        }
+        require(msg.value >= totalPayable, "Must be greater than NFT cost");
+        // update the tokenAmount
+        uint _ownerPercentage= nftContract1155Sale[platformERC1155NFT][_tokenId]
+            .ownerPercentage;
+        if(nftContract1155Sale[platformERC1155NFT][_tokenId]
+            .tokenAmount > 1
+        ){
+            nftContract1155Sale[platformERC1155NFT][_tokenId]
+            .tokenAmount -= 1;
+        }
+        else{
+            resetERC1155Sale(platformERC1155NFT, _tokenId);
+        }
+        
+        // Pay and Transfer
+        
+        // 1. Cut platform fees from the buyer
+        totalPayable -= platformFees;
+        // 2. Cut ownerAmount from Seller
+        uint256 ownerAmount = (buyNowPrice * (_ownerPercentage)) / (10000);
+        totalPayable -= ownerAmount;
+        // If there is royalty involved, pay the royalty owner
+        if (
+            nftRoyalty[platformERC1155NFT][_tokenId].activated == true
+        ) {
+            address royaltyOwner = nftRoyalty[platformERC1155NFT][_tokenId]
+                .royaltyOwner;
+            uint _royaltyPercentage = nftRoyalty[platformERC1155NFT][
+                _tokenId
+            ].royaltyPercentage;
+            // 3. Cut Royaltypercentage
+            royaltyAmount = (buyNowPrice * (_royaltyPercentage)) / (10000);
+            totalPayable -= platformFees;
+            payable(royaltyOwner).transfer(royaltyAmount);
+        }else{
+            nftRoyalty[platformERC1155NFT][_tokenId].activated= true;
+        }
+        address owner = owner();
+        payable(owner).transfer(ownerAmount);
+        payable(owner).transfer(platformFees);
+        (bool success, ) = payable(seller).call{value: totalPayable}(
+            ""
+        );
+        // if it failed, update their credit balance so they can pull it later
+        if (!success) {
+            failedTransferCredits[seller] =
+                failedTransferCredits[seller] +
+                (totalPayable);
+        }
+        IERC721(platformERC1155NFT).transferFrom(
+            address(this),
+            msg.sender,
+            _tokenId,
+            1
+        );
+    }
+
+    function resetERC1155Sale(address _nftContractAddress, uint256 _tokenId) internal {
+        nftContract1155Sale[_nftContractAddress][_tokenId].ERC20Token= address(0);
+        nftContract1155Sale[_nftContractAddress][_tokenId].platformPercentage= 0;
+        nftContract1155Sale[_nftContractAddress][_tokenId].ownerPercentage= 0;
+        nftContract1155Sale[_nftContractAddress][_tokenId].nftSeller= address(0);
+        nftContract1155Sale[_nftContractAddress][_tokenId].tokenAmount= 0;
+        nftContract1155Sale[_nftContractAddress][_tokenId].buyNowPrice= 0;
     }
 
     function buyNFT(address _nftContractAddress, uint256 _tokenId)
