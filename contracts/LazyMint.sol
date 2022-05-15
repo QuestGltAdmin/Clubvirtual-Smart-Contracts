@@ -1884,7 +1884,7 @@ interface IMarkeplace{
     function setRoyaltyData(uint256 _tokenId, uint256 _royaltyPercentage, address _royaltyOwner) external;
 }
 
-contract ClubVirtualLazyNFT is ERC721URIStorage, EIP712, AccessControl {
+contract ClubVirtual is ERC721URIStorage, EIP712, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     string private constant SIGNING_DOMAIN = "ClubVirtual";
     string private constant SIGNATURE_VERSION = "1";
@@ -1894,13 +1894,13 @@ contract ClubVirtualLazyNFT is ERC721URIStorage, EIP712, AccessControl {
 
     mapping(address => uint256) pendingWithdrawals;
 
-    constructor(address payable minter, IMarkeplace _nftAuctionContract, uint256 _platformPercentage, address _owner)
+    constructor(address payable minter, IMarkeplace _nftAuctionContract, uint256 _platformPercentage)
     ERC721("ClubVirtual", "ClubVirtual")
     EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION){
         _setupRole(MINTER_ROLE, minter);
         nftAuctionContract = _nftAuctionContract;
         platformPercentage = _platformPercentage;
-        owner= _owner;
+        owner= msg.sender;
     }
 
     struct NFTVoucher {

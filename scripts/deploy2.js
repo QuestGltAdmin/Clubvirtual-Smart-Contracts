@@ -51,7 +51,7 @@ async function main() {
   console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
 
-  const initialize= markeplace.initialize(normalNFT.address, lazyNFT.address, clubVirtual1155.address, 1000); // 1000= 10%
+  const initialize= markeplace.initialize(normalNFT.address, lazyNFT.address, clubVirtual1155.address)
   console.log("contract initilize()", initialize);
   console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 

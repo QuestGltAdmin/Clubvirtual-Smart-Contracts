@@ -459,7 +459,6 @@ interface IClubVirtualERC721 {
 
 contract NFTAuction is Ownable, ReentrancyGuard {
     uint256 public settlePenalty = 5;
-    uint256 platformPercentage;
     bool runInitialize;
 
     address public platformNormalNFT;
@@ -471,6 +470,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
     mapping(address => mapping(uint256 => address)) public nftOwner;
     mapping(address => uint256) public failedTransferCredits;
     mapping(address => mapping(uint256 => Royalty)) public nftRoyalty;
+    mapping(address => mapping(uint256 => Proposal)) public buyProposal;
 
     struct Auction {
         //map token ID to
@@ -481,6 +481,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         uint256 auctionStartTime;
         uint32 bidIncreasePercentage;
         uint32 ownerPercentage;
+        uint32 platformPercentage;
         address nftHighestBidder;
         address nftSeller;
         address ERC20Token; // The seller can specify an ERC20 token that can be used to bid or purchase the NFT
@@ -490,6 +491,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         address nftSeller;
         address ERC20Token;
         uint32 ownerPercentage;
+        uint32 platformPercentage;
         uint256 buyNowPrice;
     }
 
@@ -497,6 +499,11 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         address royaltyOwner;
         uint256 royaltyPercentage;
         bool activated;
+    }
+
+    struct Proposal{
+        address buyer;
+        uint256 price;
     }
 
     modifier minimumBidNotMade(address _nftContractAddress, uint256 _tokenId) {
@@ -562,7 +569,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
 
     modifier biddingPeriodMinimum(uint256 _auctionBidPeriod) {
         require(
-            _auctionBidPeriod >= 0,
+            _auctionBidPeriod >= 600,
             "Minimum bidding beriod is 10 minutes"
         );
         _;
@@ -581,22 +588,13 @@ contract NFTAuction is Ownable, ReentrancyGuard {
     function initialize(
         address _platformNormalNFT,
         address _platformLazyNFT,
-        address _platformERC1155NFT,
-        uint256 _platformPercentage
+        address _platformERC1155NFT
     ) public onlyOwner {
         require(runInitialize == false, "NFT contract already set");
         platformNormalNFT = _platformNormalNFT;
         platformLazyNFT = _platformLazyNFT;
         platformERC1155NFT = _platformERC1155NFT;
-        platformPercentage = _platformPercentage;
         runInitialize = true;
-    }
-
-    function setPlatformPercentage(uint256 _platformPercentage)
-        public
-        onlyOwner
-    {
-        platformPercentage = _platformPercentage;
     }
 
     function _isPaymentAccepted(
@@ -682,6 +680,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         uint256[] memory _batchTokenPrices,
         uint32[] memory _royaltyPercentage,
         uint32 _ownerPercentage,
+        uint32 _platformPercentage,
         address _erc20Token,
         uint256 _auctionStartTime,
         uint256 _auctionBidPeriod,
@@ -701,6 +700,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
                 _batchTokenPrices[i],
                 _royaltyPercentage[i],
                 _ownerPercentage,
+                _platformPercentage,
                 _auctionBidPeriod,
                 _bidIncreasePercentage,
                 _auctionStartTime,
@@ -716,6 +716,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         uint256 _minPrice,
         uint32 _royaltyPercentage,
         uint32 _ownerPercentage,
+        uint32 _platformPercentage,
         uint256 _auctionBidPeriod,
         uint32 _bidIncreasePercentage,
         uint256 _auctionStartTime,
@@ -741,6 +742,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
                 .auctionBidPeriod = _auctionBidPeriod;
             auction.bidIncreasePercentage = _bidIncreasePercentage;
             auction.ownerPercentage = _ownerPercentage;
+            auction.platformPercentage = _platformPercentage;
             nftRoyalty[platformNormalNFT][tokenId].royaltyOwner = msg.sender;
             nftRoyalty[platformNormalNFT][tokenId]
                 .royaltyPercentage = _royaltyPercentage;
@@ -761,6 +763,9 @@ contract NFTAuction is Ownable, ReentrancyGuard {
 
             nftContractAuctions[_nftContractAddress][_tokenId]
                 .ownerPercentage = _ownerPercentage;
+            
+            nftContractAuctions[_nftContractAddress][_tokenId]
+                .platformPercentage = _platformPercentage;
 
             if (
                 nftRoyalty[_nftContractAddress][_tokenId].royaltyOwner ==
@@ -812,8 +817,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
     ) internal {
         if (
             _nftContractAddress == platformNormalNFT ||
-            _nftContractAddress == platformLazyNFT ||
-            _nftContractAddress == platformERC1155NFT
+            _nftContractAddress == platformLazyNFT 
         ) {
             // Sending the NFT to this contract
             IERC721(_nftContractAddress).contractSafeTransferFrom(
@@ -867,6 +871,15 @@ contract NFTAuction is Ownable, ReentrancyGuard {
     {
         nftContractAuctions[_nftContractAddress][_tokenId]
             .minPrice = _newMinPrice;
+    }
+
+    function updateAuctionEndTime(
+        address _nftContractAddress,
+        uint256 _tokenId,
+        uint256 _increaseDuration
+)   external onlyNftSeller(_nftContractAddress, _tokenId)   {
+        require(_increaseDuration>=600, "duration less than 10 min");
+        nftContractAuctions[_nftContractAddress][_tokenId].auctionEnd += _increaseDuration;
     }
 
     function _updateHighestBid(
@@ -938,6 +951,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         uint256 _tokenId,
         address _erc20Token,
         uint32 _ownerPercentage,
+        uint32 _platformPercentage,
         uint256 _buyNowPrice,
         uint32 _royaltyPercentage
     ) internal {
@@ -950,6 +964,8 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         nftContractSale[_nftContractAddress][_tokenId].nftSeller = msg.sender;
         nftContractSale[_nftContractAddress][_tokenId]
             .ownerPercentage = _ownerPercentage;
+        nftContractSale[_nftContractAddress][_tokenId]
+        .platformPercentage = _platformPercentage;
 
         if (
             nftRoyalty[_nftContractAddress][_tokenId].royaltyOwner == address(0)
@@ -965,14 +981,14 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         uint256 _tokenId,
         address _erc20Token,
         uint32 _ownerPercentage,
+        uint32 _platformPercentage,
         uint256 _buyNowPrice,
         uint32 _royaltyPercentage
     ) external priceGreaterThanZero(_buyNowPrice) {
         // If it's our own platform NFT
         if (
             _nftContractAddress == platformNormalNFT ||
-            _nftContractAddress == platformLazyNFT ||
-            _nftContractAddress == platformERC1155NFT
+            _nftContractAddress == platformLazyNFT
         ) {
             IERC721(_nftContractAddress).contractSafeTransferFrom(
                 msg.sender,
@@ -984,6 +1000,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
                 _tokenId,
                 _erc20Token,
                 _ownerPercentage,
+                _platformPercentage,
                 _buyNowPrice,
                 _royaltyPercentage
             );
@@ -1000,6 +1017,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
                 _tokenId,
                 _erc20Token,
                 _ownerPercentage,
+                _platformPercentage,
                 _buyNowPrice,
                 _royaltyPercentage
             );
@@ -1012,6 +1030,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         uint256[] memory _tokenId,
         uint256[] memory _buyNowPrice,
         uint32 _ownerPercentage,
+        uint32 _platformPercentage,
         uint32 _royaltyPercentage
     ) external batchWithinLimits(_tokenId.length) {
         require(_tokenId.length == _buyNowPrice.length);
@@ -1026,6 +1045,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
                 _tokenId[i],
                 _erc20Token,
                 _ownerPercentage,
+                _platformPercentage,
                 _buyNowPrice[i],
                 _royaltyPercentage
             );
@@ -1036,6 +1056,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         address _erc20Token,
         uint256 _buyNowPrice,
         uint32 _ownerPercentage,
+        uint32 _platformPercentage,
         uint32 _royaltyPercentage,
         string memory _uri
     ) external priceGreaterThanZero(_buyNowPrice) {
@@ -1050,6 +1071,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
             _tokenId,
             _erc20Token,
             _ownerPercentage,
+            _platformPercentage,
             _buyNowPrice,
             _royaltyPercentage
         );
@@ -1059,6 +1081,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         uint256[] memory _batchTokenPrice,
         address _erc20Token,
         uint32 _ownerPercentage,
+        uint32 _platformPercentage,
         uint32 _royaltyPercentage,
         string[] memory _uri
     ) external batchWithinLimits(_batchTokenPrice.length) {
@@ -1079,6 +1102,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
                 _tokenId,
                 _erc20Token,
                 _ownerPercentage,
+                _platformPercentage,
                 _batchTokenPrice[i],
                 _royaltyPercentage
             );
@@ -1095,6 +1119,8 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         require(msg.sender != seller, "Seller cannot buy own NFT");
         uint256 buyNowPrice = nftContractSale[_nftContractAddress][_tokenId]
             .buyNowPrice;
+        uint32 platformPercentage= nftContractSale[_nftContractAddress][_tokenId]
+            .platformPercentage;
         uint256 platformFees = (buyNowPrice * (platformPercentage)) / (10000);
         uint256 totalPayable = buyNowPrice + platformFees;
 
@@ -1128,6 +1154,10 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         uint256 _ownerPercentage = nftContractSale[_nftContractAddress][
             _tokenId
         ].ownerPercentage;
+
+        uint256 platformPercentage = nftContractSale[_nftContractAddress][
+            _tokenId
+        ].platformPercentage;
         if (_isERC20Auction(erc20Token)) {
             // if sale is ERC20
             uint totalAmount = nftContractSale[_nftContractAddress][_tokenId]
@@ -1215,14 +1245,80 @@ contract NFTAuction is Ownable, ReentrancyGuard {
     }
 
     function acceptBuyProposal(
-        // voucher
         address _nftContractAddress,
         uint256 _tokenId,
-        uint256 _proposedPrice
+        uint256 _proposedPrice,
+        address _proposingBuyer
     ) public {
-        nftContractSale[_nftContractAddress][_tokenId]
-            .buyNowPrice = _proposedPrice;
-        buyNFT(_nftContractAddress, _tokenId);
+        require(msg.sender == nftContractSale[_nftContractAddress][_tokenId]
+            .nftSeller, "Only Seller function");
+        buyProposal[_nftContractAddress][_tokenId].buyer = _proposingBuyer;
+        buyProposal[_nftContractAddress][_tokenId].price = _proposedPrice;
+    }
+
+    function buyFromProposal(
+        address _nftContractAddress,
+        uint256 _tokenId
+    ) payable external nonReentrant{
+        address seller = nftContractSale[_nftContractAddress][_tokenId]
+            .nftSeller;
+        uint32 platformPercentage = nftContractSale[_nftContractAddress][_tokenId]
+            .platformPercentage;
+        
+        require(msg.sender==buyProposal[_nftContractAddress][_tokenId].buyer, "Invalid Buyer");
+        require(msg.sender != seller, "Seller cannot buy own NFT");
+        uint256 buyNowPrice = buyProposal[_nftContractAddress][_tokenId].price;
+        uint256 platformFees = (buyNowPrice * (platformPercentage)) / (10000);
+        uint256 totalPayable = buyNowPrice + platformFees;
+        uint royaltyAmount;
+        if (
+            nftRoyalty[_nftContractAddress][_tokenId].activated
+        ) {
+            uint _royaltyPercentage = nftRoyalty[_nftContractAddress][_tokenId]
+                .royaltyPercentage;
+            royaltyAmount = (buyNowPrice * (_royaltyPercentage)) / (10000);
+            totalPayable += royaltyAmount;
+        }
+        require(msg.value >= totalPayable, "Must be greater than NFT cost");
+        uint256 _ownerPercentage= nftContractSale[_nftContractAddress][_tokenId].ownerPercentage;
+        totalPayable -= platformFees;
+        // 2. Cut ownerAmount from Seller
+        uint256 ownerAmount = (buyNowPrice * (_ownerPercentage)) / (10000);
+        totalPayable -= ownerAmount;
+        // Reset Sale Data
+        _resetSale(_nftContractAddress, _tokenId);
+        if (
+            nftRoyalty[_nftContractAddress][_tokenId].activated == true
+        ) {
+            address royaltyOwner = nftRoyalty[_nftContractAddress][_tokenId]
+                .royaltyOwner;
+            uint _royaltyPercentage = nftRoyalty[_nftContractAddress][
+                _tokenId
+            ].royaltyPercentage;
+            // 3. Cut Royaltypercentage
+            royaltyAmount = (buyNowPrice * (_royaltyPercentage)) / (10000);
+            totalPayable -= platformFees;
+            payable(royaltyOwner).transfer(royaltyAmount);
+        }else{
+            nftRoyalty[_nftContractAddress][_tokenId].activated= true;
+        }
+        address owner = owner();
+        payable(owner).transfer(ownerAmount);
+        payable(owner).transfer(platformFees);
+        (bool success, ) = payable(seller).call{value: totalPayable}(
+            ""
+        );
+        // if it failed, update their credit balance so they can pull it later
+        if (!success) {
+            failedTransferCredits[seller] =
+                failedTransferCredits[seller] +
+                (totalPayable);
+        }
+        IERC721(_nftContractAddress).transferFrom(
+            address(this),
+            msg.sender,
+            _tokenId
+        );
     }
 
     function _resetSale(address _nftContractAddress, uint256 _tokenId)
@@ -1382,6 +1478,9 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         uint256 _ownerPercentage = nftContractAuctions[_nftContractAddress][
             _tokenId
         ].ownerPercentage;
+        uint256 platformPercentage=nftContractAuctions[_nftContractAddress][
+            _tokenId
+        ].platformPercentage;
 
         if (_isERC20Auction(erc20Token)) {
             // if sale is ERC20
@@ -1423,7 +1522,8 @@ contract NFTAuction is Ownable, ReentrancyGuard {
                 totalAmount
             );
         } else {
-            uint totalAmount = (msg.value) + _highestBid;
+            // uint totalAmount = _highestBid + msg.value;
+            uint totalAmount = _highestBid;
             // 1. Cut platform fees from the buyer
             uint256 platformFees = (_highestBid * (platformPercentage)) /
                 (10000);
@@ -1524,7 +1624,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
     }
 
     function settleAuction(address _nftContractAddress, uint256 _tokenId)
-        payable
+        // payable
         external
         nonReentrant
         isAuctionOver(_nftContractAddress, _tokenId)
@@ -1532,29 +1632,32 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         uint256 _nftHighestBid = nftContractAuctions[_nftContractAddress][
             _tokenId
         ].nftHighestBid;
-        address erc20Token = nftContractAuctions[_nftContractAddress][
+        uint256 minPrice= nftContractAuctions[_nftContractAddress][
             _tokenId
-        ].ERC20Token;
-        require(_nftHighestBid > 0, "No bid has been made");
-        uint256 platformFees = (_nftHighestBid * (platformPercentage)) / (10000);
-        uint256 totalPayable = platformFees;
-        if (
-            nftRoyalty[_nftContractAddress][_tokenId].activated
-        ) {
-            uint _royaltyPercentage = nftRoyalty[_nftContractAddress][_tokenId]
-                .royaltyPercentage;
-            uint royaltyAmount = (_nftHighestBid * (_royaltyPercentage)) / (10000);
-            totalPayable += royaltyAmount;
-        }
+        ].minPrice;
+        // address erc20Token = nftContractAuctions[_nftContractAddress][
+        //     _tokenId
+        // ].ERC20Token;
+        require(_nftHighestBid > minPrice, "No bid has been made");
+        // uint256 platformFees = (_nftHighestBid * (platformPercentage)) / (10000);
+        // uint256 totalPayable = platformFees;
+        // if (
+        //     nftRoyalty[_nftContractAddress][_tokenId].activated
+        // ) {
+        //     uint _royaltyPercentage = nftRoyalty[_nftContractAddress][_tokenId]
+        //         .royaltyPercentage;
+        //     uint royaltyAmount = (_nftHighestBid * (_royaltyPercentage)) / (10000);
+        //     totalPayable += royaltyAmount;
+        // }
 
-        if (_isERC20Auction(erc20Token)) {
-            require(
-                IERC20(erc20Token).balanceOf(msg.sender) >= totalPayable,
-                "Must be greater than NFT cost"
-            );
-        } else {
-            require(msg.value >= totalPayable, "Must be greater than NFT cost");
-        }
+        // if (_isERC20Auction(erc20Token)) {
+        //     require(
+        //         IERC20(erc20Token).balanceOf(msg.sender) >= totalPayable,
+        //         "Must be greater than NFT cost"
+        //     );
+        // } else {
+        //     require(msg.value >= totalPayable, "Must be greater than NFT cost");
+        // }
         _transferNftAndPaySeller(_nftContractAddress, _tokenId);
     }
 
