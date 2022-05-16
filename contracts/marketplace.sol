@@ -218,20 +218,6 @@ interface IERC721 is IERC165 {
         uint256 tokenId
     ) external;
 
-    function contractSafeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId,
-        uint256 tokenAmount
-    ) external;
-
-    function transferFrom(
-        address from , 
-        address to , 
-        uint256 tokenId, 
-        uint256 amountoftoken
-    ) external;
-
     /**
      * @dev Transfers `tokenId` token from `from` to `to`.
      *
@@ -475,6 +461,20 @@ interface IClubVirtualERC1155 {
         uint256 no_of_tokens_to_create,
         string calldata _uri
     ) external returns(uint256);
+
+    function contractSafeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        uint256 tokenAmount
+    ) external;
+ 
+    function transferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        uint256 amountoftoken
+    ) external;
 
 }
 
@@ -855,7 +855,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         }
         // If NFT not one of ours then it needs approval
         else {
-            IERC721(_nftContractAddress).transferFrom(
+            IERC721(_nftContractAddress).safeTransferFrom(
                 msg.sender,
                 address(this),
                 _tokenId
@@ -1011,7 +1011,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         }
         // if it's not our own platform NFT
         else {
-            IERC721(_nftContractAddress).transferFrom(
+            IERC721(_nftContractAddress).safeTransferFrom(
                 msg.sender,
                 address(this),
                 _tokenId
@@ -1125,7 +1125,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         // checks
         require(_price > 0, "Price less than 0");
         // Transfer tokens to this contract
-        IERC721(platformERC1155NFT).contractSafeTransferFrom(
+        IClubVirtualERC1155(platformERC1155NFT).contractSafeTransferFrom(
             msg.sender,
             address(this),
             _tokenId,
@@ -1255,7 +1255,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         if (!success) {
             revert();
         }
-        IERC721(platformERC1155NFT).transferFrom(
+        IClubVirtualERC1155(platformERC1155NFT).transferFrom(
             address(this),
             msg.sender,
             _tokenId,
@@ -1397,7 +1397,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
             }
 
         }
-        IERC721(_nftContractAddress).transferFrom(
+        IERC721(_nftContractAddress).safeTransferFrom(
             address(this),
             msg.sender,
             _tokenId
@@ -1453,7 +1453,6 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         else{
             resetERC1155Sale(_tokenId);
         }
-        
         // Pay and Transfer
         
         // 1. Cut platform fees from the buyer
@@ -1486,7 +1485,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         if (!success) {
             revert();
         }
-        IERC721(platformERC1155NFT).transferFrom(
+        IClubVirtualERC1155(platformERC1155NFT).transferFrom(
             address(this),
             msg.sender,
             _tokenId,
@@ -1549,7 +1548,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         if (!success) {
             revert();
         }
-        IERC721(_nftContractAddress).transferFrom(
+        IERC721(_nftContractAddress).safeTransferFrom(
             address(this),
             msg.sender,
             _tokenId
@@ -1819,7 +1818,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
             _nftHighestBid
         );
 
-        IERC721(_nftContractAddress).transferFrom(
+        IERC721(_nftContractAddress).safeTransferFrom(
             address(this),
             _nftRecipient,
             _tokenId
@@ -1953,7 +1952,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         // reset sale
         _resetSale(_nftContractAddress, _tokenId);
         // transfer the NFT back to the Seller
-        IERC721(_nftContractAddress).transferFrom(
+        IERC721(_nftContractAddress).safeTransferFrom(
             address(this),
             nftSeller,
             _tokenId
@@ -1965,7 +1964,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         require(msg.sender == seller, "Only seller function");
         uint256 tokenAmount= nftContract1155Sale[platformERC1155NFT][_tokenId].tokenAmount;
         resetERC1155Sale(_tokenId);
-        IERC721(platformERC1155NFT).transferFrom(
+        IClubVirtualERC1155(platformERC1155NFT).transferFrom(
             address(this),
             msg.sender,
             _tokenId,
@@ -1991,7 +1990,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         // Reset values of this Auction
         _resetBids(_nftContractAddress, _tokenId);
         _resetAuction(_nftContractAddress, _tokenId);
-        IERC721(_nftContractAddress).transferFrom(
+        IERC721(_nftContractAddress).safeTransferFrom(
             address(this),
             _nftRecipient,
             _tokenId

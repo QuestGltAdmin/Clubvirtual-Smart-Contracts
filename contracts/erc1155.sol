@@ -1145,10 +1145,11 @@ contract ClubVirtual1155 is ERC1155 {
     function contractSafeTransferFrom(
         address _from,
         address _to,
-        uint _tokenId
+        uint _tokenId,
+        uint _numberoftokens
     ) external {
         require(msg.sender == auctionContract, "only auction contract");
-        super._contractSafeTransferFrom(_from, _to, _tokenId, 1, "");
+        super._contractSafeTransferFrom(_from, _to, _tokenId, _numberoftokens, "");
     }
 
     function transferFrom(address from , address to , uint256 tokenId, uint256 amountoftoken) public {

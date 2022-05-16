@@ -1055,6 +1055,8 @@ contract NFTokenMetadata is
 
 pragma solidity 0.8.0;
 
+
+ 
 contract ClubVirtualNormal is NFTokenMetadata {
  
     address marketplaceContract;
@@ -1120,11 +1122,11 @@ contract ClubVirtualNormal is NFTokenMetadata {
     super._contractSafeTransferFrom(_from, _to, _tokenId);
   }
  
-    function tokensOwned(address holder) external view returns (uint256[] memory) {
-	    return tokensowned[holder];
-    }
- 
-    function totalSupply() external view returns (uint){
-        return _tokenId-1;
-    } 
+  function tokensOwned(address holder) external view returns (uint256[] memory) {
+    return tokensowned[holder];
+  }
+
+  function totalSupply() external view returns (uint){
+      return _tokenId-1;
+  } 
 }

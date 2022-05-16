@@ -1888,7 +1888,6 @@ contract ClubVirtualLazyNFT is ERC721URIStorage, EIP712, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     string private constant SIGNING_DOMAIN = "ClubVirtual";
     string private constant SIGNATURE_VERSION = "1";
-    uint256 platformPercentage;
     IMarkeplace public nftAuctionContract;
     address owner;
 

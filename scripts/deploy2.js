@@ -26,7 +26,7 @@ async function main() {
 
   //  3. Lazymint ERC721
   const LazyNFT = await ethers.getContractFactory("ClubVirtualLazyNFT");
-  const lazyNFT = await LazyNFT.deploy(deployer.address, markeplace.address, 100);
+  const lazyNFT = await LazyNFT.deploy(deployer.address, markeplace.address);
 
   await lazyNFT.deployed();
 
