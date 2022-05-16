@@ -537,8 +537,11 @@ contract NFTAuction is Ownable, ReentrancyGuard {
     }
 
     modifier auctionOngoing(address _nftContractAddress, uint256 _tokenId) {
+        uint256 auctionEndTimestamp = nftContractAuctions[_nftContractAddress][
+            _tokenId
+        ].auctionEnd;
         require(
-            _isAuctionOngoing(_nftContractAddress, _tokenId),
+            block.timestamp < auctionEndTimestamp,
             "Auction has ended"
         );
         _;
@@ -563,20 +566,6 @@ contract NFTAuction is Ownable, ReentrancyGuard {
                 _tokenAmount
             ),
             "Payment invalid"
-        );
-        _;
-    }
-
-    modifier notZeroAddress(address _address) {
-        require(_address != address(0), "Given zero address");
-        _;
-    }
-
-    modifier notNftSeller(address _nftContractAddress, uint256 _tokenId) {
-        require(
-            msg.sender !=
-                nftContractAuctions[_nftContractAddress][_tokenId].nftSeller,
-            "Owner cannot bid on own NFT"
         );
         _;
     }
@@ -672,20 +661,6 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         _royalty.royaltyOwner = _royaltyOwner;
         _royalty.royaltyPercentage = _royaltyPercentage;
         _royalty.activated= true;
-    }
-
-    function _isAuctionOngoing(address _nftContractAddress, uint256 _tokenId)
-        internal
-        view
-        returns (bool)
-    {
-        uint256 auctionEndTimestamp = nftContractAuctions[_nftContractAddress][
-            _tokenId
-        ].auctionEnd;
-        //if the auctionEnd is set to 0, the auction is technically on-going, however
-        //the minimum bid price (minPrice) has not yet been met.
-        return (auctionEndTimestamp == 0 ||
-            block.timestamp < auctionEndTimestamp);
     }
 
     function createBatchNftAuction(
@@ -1550,7 +1525,6 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         uint256 _tokenAmount
     )
         internal
-        notNftSeller(_nftContractAddress, _tokenId)
         paymentAccepted(
             _nftContractAddress,
             _tokenId,
@@ -1558,6 +1532,11 @@ contract NFTAuction is Ownable, ReentrancyGuard {
             _tokenAmount
         )
     {
+        require(
+            msg.sender !=
+                nftContractAuctions[_nftContractAddress][_tokenId].nftSeller,
+            "Owner cannot bid on own NFT"
+        );
         uint256 bidIncreaseAmount = ((
             nftContractAuctions[_nftContractAddress][_tokenId].nftHighestBid
         ) * (100 + _getBidIncreasePercentage(_nftContractAddress, _tokenId))) /
@@ -1808,8 +1787,10 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         // payable
         external
         nonReentrant
-        isAuctionOver(_nftContractAddress, _tokenId)
     {
+        require(block.timestamp> nftContractAuctions[_nftContractAddress][
+            _tokenId
+        ].auctionEnd, "Auction going on");
         uint256 _nftHighestBid = nftContractAuctions[_nftContractAddress][
             _tokenId
         ].nftHighestBid;
