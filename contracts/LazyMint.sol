@@ -1884,7 +1884,7 @@ interface IMarkeplace{
     function setRoyaltyData(uint256 _tokenId, uint256 _royaltyPercentage, address _royaltyOwner) external;
 }
 
-contract ClubVirtual is ERC721URIStorage, EIP712, AccessControl {
+contract ClubVirtualLazyNFT is ERC721URIStorage, EIP712, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     string private constant SIGNING_DOMAIN = "ClubVirtual";
     string private constant SIGNATURE_VERSION = "1";
@@ -1894,12 +1894,11 @@ contract ClubVirtual is ERC721URIStorage, EIP712, AccessControl {
 
     mapping(address => uint256) pendingWithdrawals;
 
-    constructor(address payable minter, IMarkeplace _nftAuctionContract, uint256 _platformPercentage)
+    constructor(address payable minter, IMarkeplace _nftAuctionContract)
     ERC721("ClubVirtual", "ClubVirtual")
     EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION){
         _setupRole(MINTER_ROLE, minter);
         nftAuctionContract = _nftAuctionContract;
-        platformPercentage = _platformPercentage;
         owner= msg.sender;
     }
 
@@ -1918,7 +1917,8 @@ contract ClubVirtual is ERC721URIStorage, EIP712, AccessControl {
         address _admin,
         uint256 _amount,
         uint256 _adminPercent,
-        uint256 _royaltyPercentage
+        uint256 _royaltyPercentage,
+        uint256 platformPercentage
     ) public payable returns (uint256) {
         // make sure signature is valid and get the address of the signer
         address signer = _verify(_voucher);
@@ -1941,11 +1941,6 @@ contract ClubVirtual is ERC721URIStorage, EIP712, AccessControl {
         payable(_creator).transfer(_amount);
         payable(_admin).transfer(adminAmount+platformFee);
         return _voucher.tokenId;
-    }
-
-    function setPlatformPercentage(uint256 _platformPercentage) public{
-        require(msg.sender== owner, "Only owner");
-        platformPercentage= _platformPercentage;
     }
 
     function setNewOwner(address _owner) public{

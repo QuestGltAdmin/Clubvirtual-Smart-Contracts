@@ -1055,8 +1055,6 @@ contract NFTokenMetadata is
 
 pragma solidity 0.8.0;
 
-
- 
 contract ClubVirtualNormal is NFTokenMetadata {
  
     address marketplaceContract;
