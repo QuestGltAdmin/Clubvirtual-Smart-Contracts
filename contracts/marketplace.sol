@@ -536,26 +536,10 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         uint256 buyNowPrice;
     }
 
-    modifier minimumBidNotMade(address _nftContractAddress, uint256 _tokenId) {
-        require(
-            !_isMinimumBidMade(_nftContractAddress, _tokenId),
-            "Bid is present"
-        );
-        _;
-    }
-
     modifier auctionOngoing(address _nftContractAddress, uint256 _tokenId) {
         require(
             _isAuctionOngoing(_nftContractAddress, _tokenId),
             "Auction has ended"
-        );
-        _;
-    }
-
-    modifier isAuctionOver(address _nftContractAddress, uint256 _tokenId) {
-        require(
-            !_isAuctionOngoing(_nftContractAddress, _tokenId),
-            "Auction not over"
         );
         _;
     }
@@ -736,6 +720,14 @@ contract NFTAuction is Ownable, ReentrancyGuard {
                 _uri[i]
             );
         }
+    }
+
+    function updateAuctionEndTime(
+        address _nftContractAddress,
+        uint256 _tokenId,
+        uint _increaseDuration
+    ) public onlyNftSeller(_nftContractAddress, _tokenId) {
+        nftContractAuctions[_nftContractAddress][_tokenId].auctionEnd += _increaseDuration;
     }
 
     function createNewNFTAuction(
@@ -935,19 +927,6 @@ contract NFTAuction is Ownable, ReentrancyGuard {
                 prevNftHighestBid
             );
         }
-    }
-
-    function _isMinimumBidMade(address _nftContractAddress, uint256 _tokenId)
-        internal
-        view
-        returns (bool)
-    {
-        uint256 minPrice = nftContractAuctions[_nftContractAddress][_tokenId]
-            .minPrice;
-        return
-            minPrice > 0 &&
-            (nftContractAuctions[_nftContractAddress][_tokenId].nftHighestBid >=
-                minPrice);
     }
 
     function _setupSale(
@@ -1840,7 +1819,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         // address erc20Token = nftContractAuctions[_nftContractAddress][
         //     _tokenId
         // ].ERC20Token;
-        require(_nftHighestBid > minPrice, "No bid has been made");
+        require(_nftHighestBid >= minPrice, "No bid has been made");
         // uint256 platformFees = (_nftHighestBid * (platformPercentage)) / (10000);
         // uint256 totalPayable = platformFees;
         // if (
@@ -1872,10 +1851,14 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         uint32 _platformPercentage,
         uint256 _buyNowPrice,
         uint32 _royaltyPercentage
-    ) public minimumBidNotMade(_nftContractAddress, _tokenId) 
+    ) public
     auctionOngoing(_nftContractAddress, _tokenId)
     onlyNftSeller(_nftContractAddress, _tokenId)
     {
+        uint minPrice= nftContractAuctions[_nftContractAddress][_tokenId].minPrice;
+        require(minPrice > 0 &&
+            (nftContractAuctions[_nftContractAddress][_tokenId].nftHighestBid >=
+                minPrice), "bid is made");
         // reset auction
         _resetAuction(_nftContractAddress, _tokenId);
         _resetBids(_nftContractAddress, _tokenId);
