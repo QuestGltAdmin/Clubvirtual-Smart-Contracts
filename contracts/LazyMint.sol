@@ -1914,11 +1914,14 @@ contract ClubVirtualLazyNFT is ERC721URIStorage, EIP712, AccessControl {
         NFTVoucher calldata _voucher,
         address _creator,
         address _admin,
-        uint256 _amount,
         uint256 _adminPercent,
         uint256 _royaltyPercentage,
         uint256 platformPercentage
     ) public payable returns (uint256) {
+        uint256 buyNowPrice= _voucher.minPrice;
+        uint256 platformFee= (buyNowPrice * platformPercentage)/10000;
+        uint totalPayable= buyNowPrice + platformFee; 
+        require(msg.value >= totalPayable, "Paid incorrect amount");
         // make sure signature is valid and get the address of the signer
         address signer = _verify(_voucher);
         _mint(signer, _voucher.tokenId);
@@ -1931,14 +1934,12 @@ contract ClubVirtualLazyNFT is ERC721URIStorage, EIP712, AccessControl {
         // record payment to signer's withdrawal balance
         pendingWithdrawals[signer] += msg.value;
 
-        uint platformFee= (_amount * platformPercentage)/10000; 
-        _amount -= platformFee;
-
-        uint256 adminAmount = (_amount * _adminPercent) / 10000;
-        _amount -= adminAmount;
-
-        payable(_creator).transfer(_amount);
-        payable(_admin).transfer(adminAmount+platformFee);
+        totalPayable -= platformFee;
+        uint256 adminAmount = (buyNowPrice * _adminPercent) / 10000;
+        totalPayable -= adminAmount;
+        uint256 adminFees= adminAmount + platformFee;
+        payable(_creator).transfer(totalPayable);
+        payable(_admin).transfer(adminFees);
         return _voucher.tokenId;
     }
 

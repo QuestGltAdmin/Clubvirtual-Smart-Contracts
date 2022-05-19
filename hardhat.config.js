@@ -30,7 +30,7 @@ module.exports = {
       settings: {
           optimizer: {
             enabled: true,
-            runs: 500,  
+            runs: 200,  
           }
         },
     },
@@ -39,7 +39,7 @@ module.exports = {
       settings: {
           optimizer: {
             enabled: true,
-            runs: 500,  
+            runs: 200,  
           }
         },
     },
@@ -48,7 +48,7 @@ module.exports = {
       settings: {
           optimizer: {
             enabled: true,
-            runs: 500,  
+            runs: 200,  
           }
         },
     },
@@ -57,7 +57,7 @@ module.exports = {
       settings: {
           optimizer: {
             enabled: true,
-            runs: 500,  
+            runs: 200,  
           }
         },
     },
@@ -69,18 +69,13 @@ module.exports = {
       accounts:
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
-    ethereum_main: {
-      url: "https://data-seed-prebsc-1-s1.binance.org:8545/" || "",
+    ropsten: {
+      url: `https://ropsten.infura.io/v3/${process.env.ROPSTEN_ID}` || "",
       accounts:
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
     matic: {
       url: "https://rpc-mumbai.matic.today" || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
-    },
-    polygon: {
-      url: "https://data-seed-prebsc-1-s1.binance.org:8545/" || "",
       accounts:
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
@@ -90,6 +85,6 @@ module.exports = {
     currency: "USD",
   },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY,
+    apiKey: process.env.BSCSCAN_API_KEY,
   },
 };
