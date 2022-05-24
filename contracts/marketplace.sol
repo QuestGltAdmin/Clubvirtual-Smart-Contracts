@@ -1637,14 +1637,6 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         }
     }
 
-    function _resetBids(address _nftContractAddress, uint256 _tokenId)
-        internal
-    {
-        nftContractAuctions[_nftContractAddress][_tokenId]
-            .nftHighestBidder = address(0);
-        nftContractAuctions[_nftContractAddress][_tokenId].nftHighestBid = 0;
-    }
-
     function _purchaseAndTransfer(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -2000,11 +1992,8 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         address,
         address,
         uint256,
-        bytes calldata
-    ) external returns (bytes4) {
-        return
-            bytes4(
-                keccak256("onERC721Received(address,address,uint256,bytes)")
-            );
+        bytes memory
+    ) public virtual returns (bytes4) {
+        return this.onERC721Received.selector;
     }
 }
