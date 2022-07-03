@@ -38,5 +38,5 @@ npx hardhat run --network bsc_testnet scripts/deploy2.js
 Then, copy the deployment address and paste it in to replace `DEPLOYED_CONTRACT_ADDRESS` in this command:
 
 ```shell
-npx hardhat verify --network ropsten DEPLOYED_CONTRACT_ADDRESS "Hello, Hardhat!"
+npx hardhat verify --network bsc_testnet DEPLOYED_CONTRACT_ADDRESS "Hello, Hardhat!"
 ```

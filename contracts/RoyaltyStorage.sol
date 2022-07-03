@@ -15,8 +15,9 @@ contract RoyaltyStorage is Ownable{
 
     mapping(address => mapping(uint256 => Royalty)) public nftRoyalty;
 
-    constructor(address _platformLazyNFT){
+    constructor(address _platformLazyNFT, address _marketplace ){
         platformLazyNFT = _platformLazyNFT;
+        marketplace= _marketplace;
     }
 
     function setRoyaltyData(

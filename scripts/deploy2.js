@@ -7,7 +7,7 @@ async function main() {
   console.log("deployer balance ", (await deployer.getBalance())/1e18);
 
    //  1. Marketplace
-  const Markeplace = await ethers.getContractFactory("NFTAuction");
+  const Markeplace = await ethers.getContractFactory("ClubVirtualERC721TEST");
   const markeplace = await Markeplace.deploy();
 
   await markeplace.deployed();
@@ -16,36 +16,50 @@ async function main() {
   console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
   // 2. Normal ERC721
-  const NormalNFT = await ethers.getContractFactory("ClubVirtualNormal");
+  const NormalNFT = await ethers.getContractFactory("ClubVirtualERC721");
   const normalNFT = await NormalNFT.deploy(markeplace.address);
 
   await normalNFT.deployed();
 
   console.log("NormalNFT Contract deployed to:", normalNFT.address);
-  console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
   //  3. Lazymint ERC721
-  const LazyNFT = await ethers.getContractFactory("ClubVirtualLazyNFT");
-  const lazyNFT = await LazyNFT.deploy(deployer.address, markeplace.address);
+  // const LazyNFT = await ethers.getContractFactory("ClubVirtualLazyERC721");
+  // const lazyNFT = await LazyNFT.deploy(deployer.address, markeplace.address);
 
-  await lazyNFT.deployed();
+  // await lazyNFT.deployed();
 
-  console.log("LazyNFT Token Contract deployed to:", lazyNFT.address);
-  console.log("Remaining balance ", (await deployer.getBalance())/1e18);
+  // console.log("LazyNFT Token Contract deployed to:", lazyNFT.address);
+  // console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
   //  4. ERC1155 
-  const ClubVirtual1155 = await ethers.getContractFactory("ClubVirtual1155");
-  const clubVirtual1155 = await ClubVirtual1155.deploy(markeplace.address);
+  // const ClubVirtual1155 = await ethers.getContractFactory("ClubVirtualERC1155");
+  // const clubVirtual1155 = await ClubVirtual1155.deploy(markeplace.address);
 
-  await clubVirtual1155.deployed();
+  // await clubVirtual1155.deployed();
 
-  console.log("ERC1155 Contract deployed to:", clubVirtual1155.address);
-  console.log("Remaining balance ", (await deployer.getBalance())/1e18);
+  // console.log("ERC1155 Contract deployed to:", clubVirtual1155.address);
+  // console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
   // Initialize() Marketplace
-  const initialize= markeplace.initialize(normalNFT.address, lazyNFT.address, clubVirtual1155.address)
-  console.log("contract initilize()", initialize);
-  console.log("Remaining balance ", (await deployer.getBalance())/1e18);
+
+  const RoyaltyStorage = await ethers.getContractFactory("RoyaltyStorage");
+  const royaltyStorage = await RoyaltyStorage.deploy(normalNFT.address, markeplace.address);
+
+  await royaltyStorage.deployed();
+
+  console.log("Royalty Storage Contract deployed to:", royaltyStorage.address);
+
+
+  // INITIALIZE
+  // 1. NFT Set Marketplace
+  const setMarketplace= normalNFT.setMarketplace(markeplace.address);
+  console.log("marketplace set in normal NFT: ", setMarketplace.hash())
+
+  // 2. Set normal NFT and Royalty storage in marketplace
+  const setInitData= markeplace.setInitData(normalNFT.address, normalNFT.address, royaltyStorage.address)
+  console.log(setInitData.hash())
+
 }
 
 main().catch((error) => {
