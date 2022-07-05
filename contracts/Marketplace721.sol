@@ -1331,18 +1331,22 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
         delete nftContractSale[_nftContractAddress][_tokenId];
     }
 
-    function getFinalBidAmount(
+    function getNextMinBid(
         address _nftContractAddress,
-        uint256 _tokenId,
-        uint256 _extraBid,
-        address _bidder
-    ) public view returns (uint) {
-        uint256 totalBidAmount = _extraBid +
-            auctionBids[_nftContractAddress][_tokenId][_bidder].bidAmount;
-        uint256 finalBid = totalBidAmount +
-            ((platformCommission * _extraBid) / 10000);
+        uint256 _tokenId
+    ) internal view returns (uint) {
+        uint256 currentHighestBid = nftContractAuctions[_nftContractAddress][
+            _tokenId
+        ].nftHighestBid;
+        uint256 bidIncreasePercentage = nftContractAuctions[
+            _nftContractAddress
+        ][_tokenId].bidIncreasePercentage;
 
-        return finalBid;
+        // Min Valid Bid Amount
+        uint256 minBidAmount = (currentHighestBid *
+            (100 + bidIncreasePercentage)) / 100;
+
+        return minBidAmount;
     }
 
     function _makeBid(
@@ -1360,29 +1364,16 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
             _tokenAmount
         )
     {
-        uint256 currentHighestBid = nftContractAuctions[_nftContractAddress][
-            _tokenId
-        ].nftHighestBid;
-        uint256 bidIncreasePercentage = nftContractAuctions[
-            _nftContractAddress
-        ][_tokenId].bidIncreasePercentage;
-
         // Total Bid Amount
         uint256 bidAmount = _tokenAmount +
             auctionBids[_nftContractAddress][_tokenId][msg.sender].bidAmount;
 
         // Min Valid Bid Amount
-        uint256 minBidAmount = (currentHighestBid *
-            (100 + bidIncreasePercentage)) / 100;
+        uint256 minBidAmount = getNextMinBid(_nftContractAddress, _tokenId);
         require(bidAmount >= minBidAmount, "BID_NOT_ENOUGH");
 
         // final amount = bid amount + platform commission
-        uint256 finalAmt = getFinalBidAmount(
-            _nftContractAddress,
-            _tokenId,
-            _tokenAmount,
-            msg.sender
-        );
+        uint256 finalAmt = _tokenAmount + ((platformCommission * _tokenAmount) / 10000);
 
         // Take platform commission from the bidder
         if (!_isERC20Auction(_erc20Token)) {
@@ -1492,8 +1483,10 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
             // 3. Cut NFT Commission from Seller
             uint256 nftFee = (totalAmount * (nftCommission)) / (10000);
 
-            // Reset Sale Data
+            // Reset Sale Data and Bidding data of the Winner
             _resetAuction(_nftContractAddress, _tokenId);
+            delete auctionBids[_nftContractAddress][_tokenId][_nftRecipient];
+
             if (royaltyStorage.isActivated(_nftContractAddress, _tokenId)) {
                 address royaltyOwner = royaltyStorage.getRoyaltyOwner(
                     _nftContractAddress,
@@ -1576,7 +1569,7 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
         );
     }
 
-    // Make it
+    /// @dev: Settles the auction and pays the seller
     function settleAuction(address _nftContractAddress, uint256 _tokenId)
         external
         // payable

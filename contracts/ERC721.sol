@@ -945,9 +945,9 @@ contract ClubVirtualERC721 is NFTokenMetadata {
     function contractSafeTransferFrom(
         address _from,
         address _to,
-        uint256 _tokenId
+        uint256 tokenId
     ) external onlyAuctionContract {
-        super._contractSafeTransferFrom(_from, _to, _tokenId);
+        super._contractSafeTransferFrom(_from, _to, tokenId);
     }
 
     function tokensOwned(address holder)
