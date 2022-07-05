@@ -1331,10 +1331,11 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
         delete nftContractSale[_nftContractAddress][_tokenId];
     }
 
-    function getNextMinBid(
-        address _nftContractAddress,
-        uint256 _tokenId
-    ) internal view returns (uint) {
+    function getNextMinBid(address _nftContractAddress, uint256 _tokenId)
+        internal
+        view
+        returns (uint)
+    {
         uint256 currentHighestBid = nftContractAuctions[_nftContractAddress][
             _tokenId
         ].nftHighestBid;
@@ -1373,7 +1374,8 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
         require(bidAmount >= minBidAmount, "BID_NOT_ENOUGH");
 
         // final amount = bid amount + platform commission
-        uint256 finalAmt = _tokenAmount + ((platformCommission * _tokenAmount) / 10000);
+        uint256 finalAmt = _tokenAmount +
+            ((platformCommission * _tokenAmount) / 10000);
 
         // Take platform commission from the bidder
         if (!_isERC20Auction(_erc20Token)) {
@@ -1569,7 +1571,7 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
         );
     }
 
-    /// @dev: Settles the auction and pays the seller
+    /// @dev Settles the auction and pays the seller
     function settleAuction(address _nftContractAddress, uint256 _tokenId)
         external
         // payable
