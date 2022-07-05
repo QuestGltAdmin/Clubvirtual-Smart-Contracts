@@ -523,6 +523,7 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
     // Keeps account of all withdraw amounts
     mapping(address => mapping(uint256 => mapping(address => Bids)))
         public auctionBids;
+    mapping(address => uint256) public failedCredits;
 
     struct Auction {
         // minimum price at which auction will start
@@ -954,6 +955,16 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
             if (!success) {
                 revert();
             }
+        }
+    }
+
+    function withdrawFailedCredits() public {
+        require(failedCredits[msg.sender] > 0, "ZERO_CREDITS");
+        (bool success, ) = payable(msg.sender).call{value: failedCredits[msg.sender]}(
+            ""
+        );
+        if (!success) {
+            revert();
         }
     }
 
@@ -1474,45 +1485,51 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
         uint256 _ownerPercentage = uint(sellerCommission[_nftSeller]);
         uint256 platformPercentage = platformCommission;
 
-        if (_isERC20Auction(erc20Token)) {
-            // if sale is ERC20
-            uint totalAmount = _highestBid;
-            // 1. Cut platform fees from the buyer
-            uint256 platformFees = (totalAmount * (platformPercentage)) /
+        // if sale is ERC20
+        uint totalAmount = _highestBid;
+        // 1. Cut platform fees from the buyer
+        uint256 platformFees = (totalAmount * (platformPercentage)) /
+            (10000);
+        // 2. Cut ownerAmount from Seller
+        uint256 ownerAmount = (totalAmount * (_ownerPercentage)) / (10000);
+        // 3. Cut NFT Commission from Seller
+        uint256 nftFee = (totalAmount * (nftCommission)) / (10000);
+
+        // Reset Sale Data and Bidding data of the Winner
+        _resetAuction(_nftContractAddress, _tokenId);
+        delete auctionBids[_nftContractAddress][_tokenId][_nftRecipient];
+
+        if (royaltyStorage.isActivated(_nftContractAddress, _tokenId)) {
+            address royaltyOwner = royaltyStorage.getRoyaltyOwner(
+                _nftContractAddress,
+                _tokenId
+            );
+            uint _royaltyPercentage = royaltyStorage.getRoyaltyPercentage(
+                _nftContractAddress,
+                _tokenId
+            );
+            // 3. Cut Royaltypercentage
+            uint royaltyAmount = (totalAmount * (_royaltyPercentage)) /
                 (10000);
-            // 2. Cut ownerAmount from Seller
-            uint256 ownerAmount = (totalAmount * (_ownerPercentage)) / (10000);
-            // 3. Cut NFT Commission from Seller
-            uint256 nftFee = (totalAmount * (nftCommission)) / (10000);
-
-            // Reset Sale Data and Bidding data of the Winner
-            _resetAuction(_nftContractAddress, _tokenId);
-            delete auctionBids[_nftContractAddress][_tokenId][_nftRecipient];
-
-            if (royaltyStorage.isActivated(_nftContractAddress, _tokenId)) {
-                address royaltyOwner = royaltyStorage.getRoyaltyOwner(
-                    _nftContractAddress,
-                    _tokenId
-                );
-                uint _royaltyPercentage = royaltyStorage.getRoyaltyPercentage(
-                    _nftContractAddress,
-                    _tokenId
-                );
-                // 3. Cut Royaltypercentage
-                uint royaltyAmount = (totalAmount * (_royaltyPercentage)) /
-                    (10000);
-                totalAmount -= royaltyAmount;
-                IERC20(erc20Token).transferFrom(
-                    msg.sender,
+            totalAmount -= royaltyAmount;
+            if (_isERC20Auction(erc20Token)) {
+                IERC20(erc20Token).transfer(
                     royaltyOwner,
                     royaltyAmount
                 );
-            } else {
-                royaltyStorage.activateRoyalty(_nftContractAddress, _tokenId);
             }
-            totalAmount -= (ownerAmount + nftFee);
+            else{
+                (bool success,) = payable(royaltyOwner).call{value: royaltyAmount}("");
+                require(success);
+            }
+        } else {
+            royaltyStorage.activateRoyalty(_nftContractAddress, _tokenId);
+        }
+        totalAmount -= (ownerAmount + nftFee);
 
-            uint256 adminFees = platformFees + ownerAmount;
+        uint256 adminFees = platformFees + ownerAmount + nftFee;
+
+        if (_isERC20Auction(erc20Token)) {
             if (adminFees > 0) {
                 IERC20(erc20Token).transferFrom(msg.sender, owner(), adminFees);
             }
@@ -1522,46 +1539,12 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
                 totalAmount
             );
         } else {
-            uint totalAmount = _highestBid;
-            // 1. Cut platform fees from the buyer
-            uint256 platformFees = (_highestBid * (platformPercentage)) /
-                (10000);
-            totalAmount -= platformFees;
-
-            // 2. Cut ownerAmount from Seller
-            uint256 ownerAmount = (_highestBid * (_ownerPercentage)) / (10000);
-
-            // 3. Cut NFT Commission from Seller
-            uint256 nftFee = (totalAmount * (nftCommission)) / (10000);
-            totalAmount -= (ownerAmount + nftFee);
-
-            // Reset Sale Data
-            _resetAuction(_nftContractAddress, _tokenId);
-
-            if (royaltyStorage.isActivated(_nftContractAddress, _tokenId)) {
-                address royaltyOwner = royaltyStorage.getRoyaltyOwner(
-                    _nftContractAddress,
-                    _tokenId
-                );
-                uint _royaltyPercentage = royaltyStorage.getRoyaltyPercentage(
-                    _nftContractAddress,
-                    _tokenId
-                );
-                // 4. Cut Royaltypercentage
-                uint royaltyAmount = (_highestBid * (_royaltyPercentage)) /
-                    (10000);
-                totalAmount -= royaltyAmount;
-                payable(royaltyOwner).transfer(royaltyAmount);
-            } else {
-                royaltyStorage.activateRoyalty(_nftContractAddress, _tokenId);
-            }
-            uint256 adminFees = ownerAmount + platformFees;
             if (adminFees > 0) {
                 payable(owner()).transfer(adminFees);
             }
             (bool success, ) = payable(_nftSeller).call{value: totalAmount}("");
             if (!success) {
-                revert();
+                failedCredits[_nftSeller] += totalAmount;
             }
         }
         IERC721(_nftContractAddress).safeTransferFrom(

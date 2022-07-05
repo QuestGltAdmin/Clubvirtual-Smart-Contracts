@@ -27,7 +27,7 @@ contract RoyaltyStorage is Ownable{
         address _royaltyOwner
     ) external {
         require(msg.sender == platformLazyNFT || msg.sender == marketplace, "Only run on redeem");
-
+        require(_royaltyPercentage <=2500, "ROYALTY_PERCENTAGE_EXCEEDED");
         Royalty storage _royalty;
         if(msg.sender == platformLazyNFT) {
              _royalty = nftRoyalty[platformLazyNFT][_tokenId];
@@ -52,6 +52,7 @@ contract RoyaltyStorage is Ownable{
 
     function setRoyaltyPercentage(address _nftContractAddress, uint _tokenId, uint256 _newPercentage) external{
         require(msg.sender == platformLazyNFT || msg.sender == marketplace, "Only run on redeem");
+        require(_newPercentage <=2500, "ROYALTY_PERCENTAGE_EXCEEDED");
         nftRoyalty[_nftContractAddress][_tokenId].royaltyPercentage= _newPercentage;
     }
 
