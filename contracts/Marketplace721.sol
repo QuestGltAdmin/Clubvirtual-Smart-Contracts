@@ -922,8 +922,8 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
 
     function withdrawFailedBids(address _nftContractAddress, uint256 _tokenId)
         public
-        isAuctionOver(_nftContractAddress, _tokenId)
     {
+        require(nftContractAuctions[_nftContractAddress][_tokenId].auctionEnd < block.timestamp);
         require(
             msg.sender !=
                 nftContractAuctions[_nftContractAddress][_tokenId]
@@ -1136,21 +1136,10 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
         uint256 buyNowPrice = sale.buyNowPrice;
         uint256 platformFees = (buyNowPrice * (platformCommission)) / (10000);
         uint256 totalPayable = buyNowPrice + platformFees;
-        // If royalty is applicable
-        if (royaltyStorage.isActivated(_nftContractAddress, _tokenId)) {
-            uint _royaltyPercentage = royaltyStorage.getRoyaltyPercentage(
-                _nftContractAddress,
-                _tokenId
-            );
-            uint royaltyAmount = (buyNowPrice * (_royaltyPercentage)) / (10000);
-            totalPayable += royaltyAmount;
-        }
+        
         address erc20Token = sale.ERC20Token;
         if (_isERC20Auction(erc20Token)) {
-            require(
-                IERC20(erc20Token).balanceOf(msg.sender) >= totalPayable,
-                "Must be greater than NFT cost"
-            );
+        
             _buyNFTWithERC20(
                 _nftContractAddress,
                 _tokenId,

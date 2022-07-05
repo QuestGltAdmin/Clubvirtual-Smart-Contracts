@@ -16,12 +16,12 @@ async function main() {
   console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
   // 2. Normal ERC721
-  const NormalNFT = await ethers.getContractFactory("ClubVirtualERC721");
-  const normalNFT = await NormalNFT.deploy(markeplace.address);
+  // const NormalNFT = await ethers.getContractFactory("ClubVirtualERC721");
+  // const normalNFT = await NormalNFT.deploy(markeplace.address);
 
-  await normalNFT.deployed();
+  // await normalNFT.deployed();
 
-  console.log("NormalNFT Contract deployed to:", normalNFT.address);
+  // console.log("NormalNFT Contract deployed to:", normalNFT.address);
 
   //  3. Lazymint ERC721
   // const LazyNFT = await ethers.getContractFactory("ClubVirtualLazyERC721");
@@ -43,22 +43,22 @@ async function main() {
 
   // Initialize() Marketplace
 
-  const RoyaltyStorage = await ethers.getContractFactory("RoyaltyStorage");
-  const royaltyStorage = await RoyaltyStorage.deploy(normalNFT.address, markeplace.address);
+  // const RoyaltyStorage = await ethers.getContractFactory("RoyaltyStorage");
+  // const royaltyStorage = await RoyaltyStorage.deploy(normalNFT.address, markeplace.address);
 
-  await royaltyStorage.deployed();
+  // await royaltyStorage.deployed();
 
-  console.log("Royalty Storage Contract deployed to:", royaltyStorage.address);
+  // console.log("Royalty Storage Contract deployed to:", royaltyStorage.address);
 
 
   // INITIALIZE
   // 1. NFT Set Marketplace
-  const setMarketplace= normalNFT.setMarketplace(markeplace.address);
-  console.log("marketplace set in normal NFT: ", setMarketplace.hash)
+  // const setMarketplace= normalNFT.setMarketplace(markeplace.address);
+  // console.log("marketplace set in normal NFT: ", setMarketplace.hash)
 
-  // 2. Set normal NFT and Royalty storage in marketplace
-  const setInitData= markeplace.setInitData(normalNFT.address, normalNFT.address, royaltyStorage.address)
-  console.log(setInitData.hash)
+  // // 2. Set normal NFT and Royalty storage in marketplace
+  // const setInitData= markeplace.setInitData(normalNFT.address, normalNFT.address, royaltyStorage.address)
+  // console.log(setInitData.hash)
 
 }
 
