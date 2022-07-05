@@ -6,7 +6,7 @@ async function main() {
   console.log("deployer address ", deployer.address);
   console.log("deployer balance ", (await deployer.getBalance())/1e18);
 
-   //  1. Marketplace
+  //  1. Marketplace
   const Markeplace = await ethers.getContractFactory("ClubVirtualERC721TEST");
   const markeplace = await Markeplace.deploy();
 
@@ -54,11 +54,11 @@ async function main() {
   // INITIALIZE
   // 1. NFT Set Marketplace
   const setMarketplace= normalNFT.setMarketplace(markeplace.address);
-  console.log("marketplace set in normal NFT: ", setMarketplace.hash())
+  console.log("marketplace set in normal NFT: ", setMarketplace.hash)
 
   // 2. Set normal NFT and Royalty storage in marketplace
   const setInitData= markeplace.setInitData(normalNFT.address, normalNFT.address, royaltyStorage.address)
-  console.log(setInitData.hash())
+  console.log(setInitData.hash)
 
 }
 
