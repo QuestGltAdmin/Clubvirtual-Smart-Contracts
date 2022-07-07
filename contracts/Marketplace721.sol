@@ -490,7 +490,7 @@ interface IRoyaltyStorage {
     ) external;
 }
 
-contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
+contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
     uint16 nftCommission; // applies to all NFTs - Paid by Seller
     uint16 platformCommission; //  applies to all NFTs - Paid by Buyer
 
