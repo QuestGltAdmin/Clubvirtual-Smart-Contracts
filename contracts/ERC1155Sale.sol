@@ -455,7 +455,7 @@ abstract contract ReentrancyGuard {
     }
 }
 
-interface IRoyaltyStorage {
+interface IDataStorage {
     function setRoyaltyData(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -488,7 +488,14 @@ interface IRoyaltyStorage {
         uint _tokenId,
         uint256 _newPercentage
     ) external;
+
+    function platformCommission() external view returns (uint16);
+
+    function nftCommission() external view returns (uint16);
+
+    function sellerCommission(address _artist) external view returns (uint16);
 }
+
 
 interface IClubVirtualERC1155 {
     function mint(
@@ -520,9 +527,7 @@ interface IClubVirtualERC1155 {
 }
 
 contract NFTAuction is Ownable, ReentrancyGuard {
-    uint16 nftCommission; // applies to all NFTs - Paid by Seller
-    uint16 platformCommission; //  applies to all NFTs - Paid by Buyer
-    IRoyaltyStorage public royaltyStorage; // stores royalty data
+    IDataStorage public dataStorage; // stores royalty data
     address public platformERC1155NFT;
 
     event SaleCreated(
@@ -534,7 +539,6 @@ contract NFTAuction is Ownable, ReentrancyGuard {
 
     mapping(address => mapping(uint256 => Proposal)) public buyProposal;
     mapping(address => mapping(uint256 => Sale)) public nftContractSale;
-    mapping(address => uint16) public sellerCommission;
 
     struct Proposal {
         address buyer;
@@ -562,22 +566,22 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         platformERC1155NFT = _platformERC1155NFT;
     }
 
-    // function changeSaleERC1155Data(
-    //     address _nftContractAddress,
-    //     uint256 _tokenId,
-    // ) external onlyOwner {
-    //     Sale storage s = nftContractSale[_nftContractAddress][_tokenId];
-    //     s.ownerPercentage = _ownerPercentage;
-    //     s.platformPercentage = _platformPercentage;
-    // }
+    function changeSaleERC1155Data(
+        address _nftContractAddress,
+        uint256 _tokenId,
+        uint256 _buyNowPrice
+    ) external onlyOwner {
+        Sale storage s = nftContractSale[_nftContractAddress][_tokenId];
+        s.buyNowPrice= _buyNowPrice;
+    }
 
     // Set own NFT addresses
     function setInitData(
         address _platformERC1155NFT,
-        IRoyaltyStorage _royaltyStorage
+        IDataStorage _dataStorage
     ) external onlyOwner {
         platformERC1155NFT = _platformERC1155NFT;
-        royaltyStorage = _royaltyStorage;
+        dataStorage = _dataStorage;
     }
 
     function setRoyaltyData(
@@ -586,7 +590,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         address _royaltyOwner
     ) external {
         require(msg.sender == platformERC1155NFT, "Only run on redeem");
-        royaltyStorage.setRoyaltyData(
+        dataStorage.setRoyaltyData(
             platformERC1155NFT,
             _tokenId,
             _royaltyPercentage,
@@ -621,10 +625,10 @@ contract NFTAuction is Ownable, ReentrancyGuard {
             sale.ERC20Token = _ERC20Token;
 
             if (
-                royaltyStorage.getRoyaltyOwner(platformERC1155NFT, _tokenId) ==
+                dataStorage.getRoyaltyOwner(platformERC1155NFT, _tokenId) ==
                 address(0)
             ) {
-                royaltyStorage.setRoyaltyData(
+                dataStorage.setRoyaltyData(
                     platformERC1155NFT,
                     _tokenId,
                     _royaltyPercentage,
@@ -647,10 +651,10 @@ contract NFTAuction is Ownable, ReentrancyGuard {
             sale.ERC20Token = _ERC20Token;
 
             if (
-                royaltyStorage.getRoyaltyOwner(_nftContractAddress, _tokenId) ==
+                dataStorage.getRoyaltyOwner(_nftContractAddress, _tokenId) ==
                 address(0)
             ) {
-                royaltyStorage.setRoyaltyData(
+                dataStorage.setRoyaltyData(
                     _nftContractAddress,
                     _tokenId,
                     _royaltyPercentage,
@@ -685,10 +689,10 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         erc1155Sale.ERC20Token = _ERC20Token;
 
         if (
-            royaltyStorage.getRoyaltyOwner(platformERC1155NFT, _tokenId) ==
+            dataStorage.getRoyaltyOwner(platformERC1155NFT, _tokenId) ==
             address(0)
         ) {
-            royaltyStorage.setRoyaltyData(
+            dataStorage.setRoyaltyData(
                 platformERC1155NFT,
                 _tokenId,
                 _royaltyPercentage,
@@ -703,7 +707,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         Sale storage sale = nftContractSale[_nftContractAddress][_tokenId];
         address seller = sale.nftSeller;
         require(msg.sender != sale.nftSeller, "Seller cannot buy own NFT");
-        uint256 platformFees = (sale.buyNowPrice * platformCommission) /
+        uint256 platformFees = (sale.buyNowPrice * dataStorage.platformCommission()) /
             (10000);
         uint256 totalPayable = sale.buyNowPrice + platformFees;
         uint royaltyAmount;
@@ -717,22 +721,22 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         }
 
         // --------- Pay and Transfer ---------- \\
-        uint256 _ownerPercentage = uint(sellerCommission[seller]);
+        uint256 _ownerPercentage = uint(dataStorage.sellerCommission(seller));
     
         // 2. Cut ownerAmount from Seller
         uint256 ownerAmount = (sale.buyNowPrice * (_ownerPercentage)) / (10000);
         // 3. Cut NFT Commission from Seller
-        uint256 nftFee = (sale.buyNowPrice * (nftCommission)) / (10000);
+        uint256 nftFee = (sale.buyNowPrice * (dataStorage.nftCommission())) / (10000);
 
         totalPayable= totalPayable - (ownerAmount + platformFees + nftFee);
 
         // If there is royalty involved, pay the royalty owner
-        if (royaltyStorage.isActivated(_nftContractAddress, _tokenId)) {
-            address royaltyOwner = royaltyStorage.getRoyaltyOwner(
+        if (dataStorage.isActivated(_nftContractAddress, _tokenId)) {
+            address royaltyOwner = dataStorage.getRoyaltyOwner(
                 _nftContractAddress,
                 _tokenId
             );
-            uint _royaltyPercentage = royaltyStorage.getRoyaltyPercentage(
+            uint _royaltyPercentage = dataStorage.getRoyaltyPercentage(
                 _nftContractAddress,
                 _tokenId
             );
@@ -741,7 +745,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
             totalPayable -= royaltyAmount;
             payable(royaltyOwner).transfer(royaltyAmount);
         } else {
-            royaltyStorage.activateRoyalty(_nftContractAddress, _tokenId);
+            dataStorage.activateRoyalty(_nftContractAddress, _tokenId);
         }
         address owner = owner();
         uint256 adminFees = ownerAmount + platformFees;
@@ -791,7 +795,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         require(msg.sender != seller, "Seller cannot buy own NFT");
         uint256 buyNowPrice = buyProposal[_nftContractAddress][_tokenId].price;
        
-        uint256 platformFees = (buyNowPrice * (platformCommission)) / (10000);
+        uint256 platformFees = (buyNowPrice * (dataStorage.platformCommission())) / (10000);
         uint256 totalPayable = buyNowPrice + platformFees;
         uint royaltyAmount;
        
@@ -802,23 +806,23 @@ contract NFTAuction is Ownable, ReentrancyGuard {
             resetERC1155Sale(_nftContractAddress,_tokenId);
         }
         // Pay and Transfer
-        uint256 _ownerPercentage = uint(sellerCommission[seller]);
+        uint256 _ownerPercentage = uint(dataStorage.sellerCommission(seller));
     
         // 2. Cut ownerAmount from Seller
         uint256 ownerAmount = (buyNowPrice * (_ownerPercentage)) / (10000);
         // 3. Cut NFT Commission from Seller
-        uint256 nftFee = (buyNowPrice * (nftCommission)) / (10000);
+        uint256 nftFee = (buyNowPrice * (dataStorage.nftCommission())) / (10000);
 
         totalPayable= totalPayable - (ownerAmount + platformFees + nftFee);
         
         
         // If there is royalty involved, pay the royalty owner
-        if (royaltyStorage.isActivated(platformERC1155NFT, _tokenId)) {
-            address royaltyOwner = royaltyStorage.getRoyaltyOwner(
+        if (dataStorage.isActivated(platformERC1155NFT, _tokenId)) {
+            address royaltyOwner = dataStorage.getRoyaltyOwner(
                 platformERC1155NFT,
                 _tokenId
             );
-            uint _royaltyPercentage = royaltyStorage.getRoyaltyPercentage(
+            uint _royaltyPercentage = dataStorage.getRoyaltyPercentage(
                 platformERC1155NFT,
                 _tokenId
             );
@@ -827,7 +831,7 @@ contract NFTAuction is Ownable, ReentrancyGuard {
             totalPayable -= royaltyAmount;
             payable(royaltyOwner).transfer(royaltyAmount);
         } else {
-            royaltyStorage.activateRoyalty(platformERC1155NFT, _tokenId);
+            dataStorage.activateRoyalty(platformERC1155NFT, _tokenId);
         }
         address owner = owner();
         uint256 adminFees = ownerAmount + platformFees;
@@ -859,24 +863,6 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         );
     }
 
-    function editFees(
-        address _artist,
-        uint16 _ownerPercent,
-        uint16 _platformFee,
-        uint16 _nftCommission
-    ) external onlyOwner notZeroAddress(_artist) {
-        if (sellerCommission[_artist] != _ownerPercent) {
-            sellerCommission[_artist] = uint16(_ownerPercent);
-        }
-        if (platformCommission != _platformFee) {
-            platformCommission = _platformFee;
-        }
-        if (nftCommission != _nftCommission) {
-            nftCommission = _nftCommission;
-        }
-    }
-
-
     function changeSaleERC1155(
         uint256 _tokenId,
         uint _buyNowPrice,
@@ -889,8 +875,8 @@ contract NFTAuction is Ownable, ReentrancyGuard {
         );
         nftContractSale[platformERC1155NFT][_tokenId]
             .buyNowPrice = _buyNowPrice;
-        if (!royaltyStorage.isActivated(platformERC1155NFT, _tokenId)) {
-            royaltyStorage.setRoyaltyPercentage(
+        if (!dataStorage.isActivated(platformERC1155NFT, _tokenId)) {
+            dataStorage.setRoyaltyPercentage(
                 platformERC1155NFT,
                 _tokenId,
                 _royaltyPercentage

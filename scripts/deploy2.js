@@ -43,7 +43,7 @@ async function main() {
 
   // Initialize() Marketplace
 
-  const RoyaltyStorage = await ethers.getContractFactory("RoyaltyStorage");
+  const RoyaltyStorage = await ethers.getContractFactory("DataStorage");
   const royaltyStorage = await RoyaltyStorage.deploy(normalNFT.address, markeplace.address);
 
   await royaltyStorage.deployed();
