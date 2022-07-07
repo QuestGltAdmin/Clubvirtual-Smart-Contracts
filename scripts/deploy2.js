@@ -33,13 +33,13 @@ async function main() {
   // console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
   //  4. ERC1155 
-  // const ClubVirtual1155 = await ethers.getContractFactory("ClubVirtualERC1155");
-  // const clubVirtual1155 = await ClubVirtual1155.deploy(markeplace.address);
+  const ClubVirtual1155 = await ethers.getContractFactory("ClubVirtualERC1155");
+  const clubVirtual1155 = await ClubVirtual1155.deploy(markeplace.address);
 
-  // await clubVirtual1155.deployed();
+  await clubVirtual1155.deployed();
 
-  // console.log("ERC1155 Contract deployed to:", clubVirtual1155.address);
-  // console.log("Remaining balance ", (await deployer.getBalance())/1e18);
+  console.log("ERC1155 Contract deployed to:", clubVirtual1155.address);
+  console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
   // Initialize() Marketplace
 

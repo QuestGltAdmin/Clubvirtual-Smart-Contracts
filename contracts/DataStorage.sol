@@ -3,7 +3,9 @@ pragma solidity 0.8.14;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract RoyaltyStorage is Ownable{
+contract DataStorage is Ownable{
+    uint16 public nftCommission; // applies to all NFTs - Paid by Seller
+    uint16 public platformCommission; //  applies to all NFTs - Paid by Buyer
     address platformLazyNFT;
     address marketplace;
 
@@ -13,7 +15,15 @@ contract RoyaltyStorage is Ownable{
         bool activated;
     }
 
+    // keeps account of all Royalty data 
     mapping(address => mapping(uint256 => Royalty)) public nftRoyalty;
+    // keeps account of all commission charges
+    mapping(address => uint16) public sellerCommission;
+
+    modifier notZeroAddress(address _address) {
+        require(_address != address(0), "Given zero address");
+        _;
+    }
 
     constructor(address _platformLazyNFT, address _marketplace ){
         platformLazyNFT = _platformLazyNFT;
@@ -39,6 +49,23 @@ contract RoyaltyStorage is Ownable{
         _royalty.royaltyOwner = _royaltyOwner;
         _royalty.royaltyPercentage = _royaltyPercentage;
         _royalty.activated = false;
+    }
+
+    function editFees(
+        address _artist,
+        uint16 _ownerPercent,
+        uint16 _platformFee,
+        uint16 _nftCommission
+    ) external onlyOwner notZeroAddress(_artist) {
+        if (sellerCommission[_artist] != _ownerPercent) {
+            sellerCommission[_artist] = uint16(_ownerPercent);
+        }
+        if (platformCommission != _platformFee) {
+            platformCommission = _platformFee;
+        }
+        if (nftCommission != _nftCommission) {
+            nftCommission = _nftCommission;
+        }
     }
 
     function setMarketplace(address _marketplace) external onlyOwner{
