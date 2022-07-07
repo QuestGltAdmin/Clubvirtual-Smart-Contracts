@@ -512,6 +512,14 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
         uint256 minPrice
     );
 
+    event SettleAuction(
+        address nftContract,
+        uint indexed tokenID,
+        address _nftSeller,
+        address _nftBuyer,
+        uint256 _price
+    );
+
     // keeps account of all auctions
     mapping(address => mapping(uint256 => Auction)) public nftContractAuctions;
     // keeps account of all sales
@@ -1519,10 +1527,9 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
 
         if (_isERC20Auction(erc20Token)) {
             if (adminFees > 0) {
-                IERC20(erc20Token).transferFrom(msg.sender, owner(), adminFees);
+                IERC20(erc20Token).transfer(owner(), adminFees);
             }
-            IERC20(erc20Token).transferFrom(
-                msg.sender,
+            IERC20(erc20Token).transfer(
                 _nftSeller,
                 totalAmount
             );
@@ -1540,6 +1547,7 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
             _nftRecipient,
             _tokenId
         );
+        emit SettleAuction(_nftContractAddress, _tokenId, _nftSeller, _nftRecipient, _highestBid);
     }
 
     /// @dev Settles the auction and pays the seller
