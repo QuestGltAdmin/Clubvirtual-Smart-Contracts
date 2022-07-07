@@ -1162,13 +1162,16 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
         uint256 _buyNowPrice
     ) internal {
         uint totalAmount = _buyNowPrice;
+
+        uint256 _ownerPercentage = uint(sellerCommission[_seller]);
         // 1. Cut platform fees from the buyer
-        uint256 platformFees = (totalAmount * (platformCommission)) / (10000);
-        // 2. Cut Seller commission from Seller
-        uint256 sellerFeePercent = uint256(sellerCommission[_seller]);
-        uint256 ownerAmount = (totalAmount * (sellerFeePercent)) / (10000);
+        uint256 platformFees = (totalAmount * (platformCommission)) /
+            (10000);
+        // 2. Cut ownerAmount from Seller
+        uint256 ownerAmount = (totalAmount * (_ownerPercentage)) / (10000);
         // 3. Cut NFT Commission from Seller
         uint256 nftFee = (totalAmount * (nftCommission)) / (10000);
+
         // Reset Sale Data
         _resetSale(_nftContractAddress, _tokenId);
         if (royaltyStorage.isActivated(_nftContractAddress, _tokenId)) {
@@ -1189,9 +1192,9 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
         }
         totalAmount -= (ownerAmount + nftFee);
         address owner = owner();
-        uint256 adminFees = platformFees + ownerAmount;
-        IERC20(_erc20Token).transfer(owner, adminFees);
-        IERC20(_erc20Token).transfer(_seller, totalAmount);
+        uint256 adminFees = platformFees + ownerAmount + nftFee;
+        IERC20(_erc20Token).transferFrom(msg.sender, owner, adminFees);
+        IERC20(_erc20Token).transferFrom(msg.sender, _seller, totalAmount);
         IERC721(_nftContractAddress).safeTransferFrom(
             address(this),
             msg.sender,
@@ -1279,20 +1282,18 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
         uint256 platformFees = (buyNowPrice * (platformCommission)) / (10000);
         uint256 totalPayable = buyNowPrice + platformFees;
         uint royaltyAmount;
-        if (royaltyStorage.isActivated(_nftContractAddress, _tokenId)) {
-            uint _royaltyPercentage = royaltyStorage.getRoyaltyPercentage(
-                _nftContractAddress,
-                _tokenId
-            );
-            royaltyAmount = (buyNowPrice * (_royaltyPercentage)) / (10000);
-            totalPayable += royaltyAmount;
-        }
+        
         require(msg.value >= totalPayable, "Must be greater than NFT cost");
+
         uint256 _ownerPercentage = uint(sellerCommission[seller]);
-        totalPayable -= platformFees;
         // 2. Cut ownerAmount from Seller
         uint256 ownerAmount = (buyNowPrice * (_ownerPercentage)) / (10000);
-        totalPayable -= ownerAmount;
+        // 3. Cut NFT Commission from Seller
+        uint256 nftFee = (buyNowPrice * (nftCommission)) / (10000);
+
+        // update total payable to seller
+        totalPayable= totalPayable - (platformFees + ownerAmount + nftFee);
+
         // Reset Sale Data
         _resetSale(_nftContractAddress, _tokenId);
         if (royaltyStorage.isActivated(_nftContractAddress, _tokenId) == true) {
@@ -1472,12 +1473,10 @@ contract ClubVirtualERC721TEST is Ownable, ReentrancyGuard {
             _tokenId
         ].nftHighestBidder;
         uint256 _ownerPercentage = uint(sellerCommission[_nftSeller]);
-        uint256 platformPercentage = platformCommission;
 
-        // if sale is ERC20
         uint totalAmount = _highestBid;
         // 1. Cut platform fees from the buyer
-        uint256 platformFees = (totalAmount * (platformPercentage)) /
+        uint256 platformFees = (totalAmount * (platformCommission)) /
             (10000);
         // 2. Cut ownerAmount from Seller
         uint256 ownerAmount = (totalAmount * (_ownerPercentage)) / (10000);
