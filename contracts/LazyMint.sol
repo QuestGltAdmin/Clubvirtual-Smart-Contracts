@@ -1,19 +1,7 @@
-/**
- *Submitted for verification at BscScan.com on 2022-05-24
-*/
-
-/**
- *Submitted for verification at BscScan.com on 2022-02-02
- */
-
-/**
- *Submitted for verification at Etherscan.io on 2022-02-02
- */
-
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-//import "hardhat/console.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @dev External interface of AccessControl declared to support ERC165 detection.
@@ -114,25 +102,6 @@ interface IAccessControl {
     function renounceRole(bytes32 role, address account) external;
 }
 
-/**
- * @dev Provides information about the current execution context, including the
- * sender of the transaction and its data. While these are generally available
- * via msg.sender and msg.data, they should not be accessed in such a direct
- * manner, since when dealing with meta-transactions the account sending and
- * paying for execution may not be the actual sender (as far as an application
- * is concerned).
- *
- * This contract is only required for intermediate, library-like contracts.
- */
-abstract contract Context {
-    function _msgSender() internal view virtual returns (address) {
-        return msg.sender;
-    }
-
-    function _msgData() internal view virtual returns (bytes calldata) {
-        return msg.data;
-    }
-}
 
 /**
  * @dev String operations.
@@ -1888,12 +1857,11 @@ interface IMarketplace{
     function setRoyaltyData(uint256 _tokenId, uint256 _royaltyPercentage, address _royaltyOwner) external;
 }
 
-contract ClubVirtualLazyERC721 is ERC721URIStorage, EIP712, AccessControl {
+contract ClubVirtualLazyERC721 is ERC721URIStorage, EIP712, AccessControl, Ownable {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     string private constant SIGNING_DOMAIN = "ClubVirtual";
     string private constant SIGNATURE_VERSION = "1";
     IMarketplace public marketplace;
-    address owner;
 
     mapping(address => uint256) pendingWithdrawals;
 
@@ -1902,7 +1870,6 @@ contract ClubVirtualLazyERC721 is ERC721URIStorage, EIP712, AccessControl {
     EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION){
         _setupRole(MINTER_ROLE, minter);
         marketplace = _marketplace;
-        owner= msg.sender;
     }
 
     struct NFTVoucher {
@@ -1947,9 +1914,8 @@ contract ClubVirtualLazyERC721 is ERC721URIStorage, EIP712, AccessControl {
         return _voucher.tokenId;
     }
 
-    function setNewOwner(address _owner) public{
-        require(msg.sender== owner, "Only owner");
-        owner= _owner;
+    function setMarketplace(IMarketplace _marketplace) public onlyOwner{
+        marketplace = _marketplace;
     }
 
     function contractSafeTransferFrom(
