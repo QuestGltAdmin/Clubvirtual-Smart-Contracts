@@ -12,7 +12,7 @@ async function main() {
 
   await markeplace.deployed();
 
-  console.log("marketplace Contract deployed to:", markeplace.address);
+  console.log("Marketplace ERC721:", markeplace.address);
   console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
   // 2. Normal ERC721
@@ -21,7 +21,7 @@ async function main() {
 
   await normalNFT.deployed();
 
-  console.log("NormalNFT Contract deployed to:", normalNFT.address);
+  console.log("NormalNFT Token:", normalNFT.address);
 
   //  3. Lazymint ERC721
   const LazyNFT = await ethers.getContractFactory("ClubVirtualLazyERC721");
@@ -29,16 +29,16 @@ async function main() {
 
   await lazyNFT.deployed();
 
-  console.log("LazyNFT Token Contract deployed to:", lazyNFT.address);
+  console.log("LazyNFT Token:", lazyNFT.address);
   console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
   // 4. ERC1155 Sale
   const ClubVirtual1155Sale = await ethers.getContractFactory("ClubVirtualERC1155Sale");
-  const clubVirtual1155Sale = await ClubVirtual1155Sale.deploy(markeplace.address);
+  const clubVirtual1155Sale = await ClubVirtual1155Sale.deploy();
 
-  await clubVirtual1155.deployed();
+  await clubVirtual1155Sale.deployed();
 
-  console.log("ERC1155 Contract deployed to:", clubVirtual1155Sale.address);
+  console.log("ERC1155 Sale:", clubVirtual1155Sale.address);
   console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
   //  5. ERC1155 
@@ -47,7 +47,7 @@ async function main() {
 
   await clubVirtual1155.deployed();
 
-  console.log("ERC1155 Contract deployed to:", clubVirtual1155.address);
+  console.log("ERC1155 Sale: ", clubVirtual1155.address);
   console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
   // Initialize() Marketplace
@@ -57,8 +57,7 @@ async function main() {
 
   await royaltyStorage.deployed();
 
-  console.log("Royalty Storage Contract deployed to:", royaltyStorage.address);
-
+  console.log("Data Storage:", royaltyStorage.address);
 
   // INITIALIZE
   // 1. NFT Set Marketplace
@@ -66,7 +65,7 @@ async function main() {
   console.log("marketplace set in normal NFT: ", setMarketplace.hash)
 
   // // 2. Set normal NFT and Royalty storage in marketplace
-  const setInitData= markeplace.setInitData(normalNFT.address, normalNFT.address, royaltyStorage.address)
+  const setInitData= markeplace.setInitData(normalNFT.address, lazyNFT.address, royaltyStorage.address)
   console.log(setInitData.hash)
 
   

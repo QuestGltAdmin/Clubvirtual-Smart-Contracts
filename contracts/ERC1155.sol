@@ -1144,6 +1144,10 @@ contract ClubVirtualERC1155 is ERC1155 {
         return(uri);
     }
 
+    function setMarketplace(address _marketplace) public onlyOwner {
+        marketplace = _marketplace;
+    }
+
     function contractSafeTransferFrom(
         address _from,
         address _to,
