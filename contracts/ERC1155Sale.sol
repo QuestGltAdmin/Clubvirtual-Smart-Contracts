@@ -547,7 +547,6 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
 
     struct Sale {
         address nftSeller;
-        address ERC20Token;
         uint256 tokenAmount;
         uint256 buyNowPrice;
     }
@@ -603,7 +602,6 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         uint256 _tokenId,
         uint256 _amountOfTokens,
         uint256 _price,
-        address _ERC20Token,
         uint32 _royaltyPercentage
     ) external {
 
@@ -622,7 +620,6 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
             sale.tokenAmount = _amountOfTokens;
             sale.nftSeller = msg.sender;
             sale.buyNowPrice = _price;
-            sale.ERC20Token = _ERC20Token;
 
             if (
                 dataStorage.getRoyaltyOwner(platformERC1155NFT, _tokenId) ==
@@ -648,7 +645,6 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
             sale.tokenAmount = _amountOfTokens;
             sale.nftSeller = msg.sender;
             sale.buyNowPrice = _price;
-            sale.ERC20Token = _ERC20Token;
 
             if (
                 dataStorage.getRoyaltyOwner(_nftContractAddress, _tokenId) ==
@@ -667,7 +663,6 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
     function createSaleERC1155(
         uint256 _amountOfTokens,
         uint256 _price,
-        address _ERC20Token,
         uint32 _royaltyPercentage,
         string memory _uri
     ) external returns (uint256) {
@@ -686,7 +681,6 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         erc1155Sale.tokenAmount = _amountOfTokens;
         erc1155Sale.nftSeller = msg.sender;
         erc1155Sale.buyNowPrice = _price;
-        erc1155Sale.ERC20Token = _ERC20Token;
 
         if (
             dataStorage.getRoyaltyOwner(platformERC1155NFT, _tokenId) ==
