@@ -24,15 +24,24 @@ async function main() {
   console.log("NormalNFT Contract deployed to:", normalNFT.address);
 
   //  3. Lazymint ERC721
-  // const LazyNFT = await ethers.getContractFactory("ClubVirtualLazyERC721");
-  // const lazyNFT = await LazyNFT.deploy(deployer.address, markeplace.address);
+  const LazyNFT = await ethers.getContractFactory("ClubVirtualLazyERC721");
+  const lazyNFT = await LazyNFT.deploy(deployer.address, markeplace.address);
 
-  // await lazyNFT.deployed();
+  await lazyNFT.deployed();
 
-  // console.log("LazyNFT Token Contract deployed to:", lazyNFT.address);
-  // console.log("Remaining balance ", (await deployer.getBalance())/1e18);
+  console.log("LazyNFT Token Contract deployed to:", lazyNFT.address);
+  console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
-  //  4. ERC1155 
+  // 4. ERC1155 Sale
+  const ClubVirtual1155Sale = await ethers.getContractFactory("ClubVirtualERC1155Sale");
+  const clubVirtual1155Sale = await ClubVirtual1155Sale.deploy(markeplace.address);
+
+  await clubVirtual1155.deployed();
+
+  console.log("ERC1155 Contract deployed to:", clubVirtual1155Sale.address);
+  console.log("Remaining balance ", (await deployer.getBalance())/1e18);
+
+  //  5. ERC1155 
   const ClubVirtual1155 = await ethers.getContractFactory("ClubVirtualERC1155");
   const clubVirtual1155 = await ClubVirtual1155.deploy(markeplace.address);
 

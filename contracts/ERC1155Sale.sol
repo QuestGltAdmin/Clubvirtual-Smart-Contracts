@@ -526,7 +526,7 @@ interface IClubVirtualERC1155 {
     ) external;
 }
 
-contract NFTAuction is Ownable, ReentrancyGuard {
+contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
     IDataStorage public dataStorage; // stores royalty data
     address public platformERC1155NFT;
 
