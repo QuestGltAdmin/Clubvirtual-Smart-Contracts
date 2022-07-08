@@ -1892,16 +1892,16 @@ contract ClubVirtualLazyERC721 is ERC721URIStorage, EIP712, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     string private constant SIGNING_DOMAIN = "ClubVirtual";
     string private constant SIGNATURE_VERSION = "1";
-    IMarketplace public nftAuctionContract;
+    IMarketplace public marketplace;
     address owner;
 
     mapping(address => uint256) pendingWithdrawals;
 
-    constructor(address payable minter, IMarketplace _nftAuctionContract)
+    constructor(address payable minter, IMarketplace _marketplace)
     ERC721("ClubVirtual", "ClubVirtual")
     EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION){
         _setupRole(MINTER_ROLE, minter);
-        nftAuctionContract = _nftAuctionContract;
+        marketplace = _marketplace;
         owner= msg.sender;
     }
 
@@ -1934,7 +1934,7 @@ contract ClubVirtualLazyERC721 is ERC721URIStorage, EIP712, AccessControl {
         _transfer(signer, _redeemer, _voucher.tokenId);
 
         // Record royaltyPercentage in marketplace contract
-        nftAuctionContract.setRoyaltyData(_voucher.tokenId, _royaltyPercentage, _creator);
+        marketplace.setRoyaltyData(_voucher.tokenId, _royaltyPercentage, _creator);
         // record payment to signer's withdrawal balance
         pendingWithdrawals[signer] += msg.value;
 
@@ -1957,7 +1957,7 @@ contract ClubVirtualLazyERC721 is ERC721URIStorage, EIP712, AccessControl {
         address _to,
         uint _tokenId
     ) external{
-        require(msg.sender == address(nftAuctionContract), "Only Auction contract");
+        require(msg.sender == address(marketplace), "Only Auction contract");
         super._contractSafeTransferFrom(_from, _to, _tokenId);
     }
 
