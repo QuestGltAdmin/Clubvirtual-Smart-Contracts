@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract DataStorage is Ownable{
     uint16 public nftCommission; // applies to all NFTs - Paid by Seller
     uint16 public platformCommission; //  applies to all NFTs - Paid by Buyer
-    address platformLazyNFT;
+    address erc1155SaleMarket;
     address marketplace;
 
     struct Royalty {
@@ -25,8 +25,8 @@ contract DataStorage is Ownable{
         _;
     }
 
-    constructor(address _platformLazyNFT, address _marketplace ){
-        platformLazyNFT = _platformLazyNFT;
+    constructor(address _erc1155SaleMarket, address _marketplace ){
+        erc1155SaleMarket = _erc1155SaleMarket;
         marketplace= _marketplace;
     }
 
@@ -36,11 +36,11 @@ contract DataStorage is Ownable{
         uint256 _royaltyPercentage,
         address _royaltyOwner
     ) external {
-        require(msg.sender == platformLazyNFT || msg.sender == marketplace, "Only run on redeem");
+        require(msg.sender == erc1155SaleMarket || msg.sender == marketplace, "Only run on redeem");
         require(_royaltyPercentage <=2500, "ROYALTY_PERCENTAGE_EXCEEDED");
         Royalty storage _royalty;
-        if(msg.sender == platformLazyNFT) {
-             _royalty = nftRoyalty[platformLazyNFT][_tokenId];
+        if(msg.sender == erc1155SaleMarket) {
+             _royalty = nftRoyalty[erc1155SaleMarket][_tokenId];
         }
         else{
             _royalty = nftRoyalty[_nftContractAddress][_tokenId];
@@ -73,12 +73,12 @@ contract DataStorage is Ownable{
     }
 
     function activateRoyalty(address _nftContractAddress, uint _tokenId) external {
-        require(msg.sender == platformLazyNFT || msg.sender == marketplace, "Only run on redeem");
+        require(msg.sender == erc1155SaleMarket || msg.sender == marketplace, "Only run on redeem");
         nftRoyalty[_nftContractAddress][_tokenId].activated= true;
     }
 
     function setRoyaltyPercentage(address _nftContractAddress, uint _tokenId, uint256 _newPercentage) external{
-        require(msg.sender == platformLazyNFT || msg.sender == marketplace, "Only run on redeem");
+        require(msg.sender == erc1155SaleMarket || msg.sender == marketplace, "Only run on redeem");
         require(_newPercentage <=2500, "ROYALTY_PERCENTAGE_EXCEEDED");
         nftRoyalty[_nftContractAddress][_tokenId].royaltyPercentage= _newPercentage;
     }
