@@ -68,8 +68,9 @@ contract DataStorage is Ownable{
         }
     }
 
-    function setMarketplace(address _marketplace) external onlyOwner{
+    function setInitData(address _marketplace, address _erc1155SaleMarket) external onlyOwner{
         marketplace = _marketplace;
+        erc1155SaleMarket= _erc1155SaleMarket;
     }
 
     function activateRoyalty(address _nftContractAddress, uint _tokenId) external {
