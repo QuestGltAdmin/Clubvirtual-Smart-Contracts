@@ -43,7 +43,7 @@ async function main() {
 
   //  5. ERC1155 
   const ClubVirtual1155 = await ethers.getContractFactory("ClubVirtualERC1155");
-  const clubVirtual1155 = await ClubVirtual1155.deploy(markeplace.address);
+  const clubVirtual1155 = await ClubVirtual1155.deploy(clubVirtual1155Sale.address);
 
   await clubVirtual1155.deployed();
 
@@ -53,7 +53,7 @@ async function main() {
   // Initialize() Marketplace
 
   const RoyaltyStorage = await ethers.getContractFactory("DataStorage");
-  const royaltyStorage = await RoyaltyStorage.deploy(normalNFT.address, markeplace.address);
+  const royaltyStorage = await RoyaltyStorage.deploy(clubVirtual1155Sale.address, markeplace.address);
 
   await royaltyStorage.deployed();
 
@@ -61,15 +61,18 @@ async function main() {
 
   // INITIALIZE
   // 1. NFT Set Marketplace
-  const setMarketplace= normalNFT.setMarketplace(markeplace.address);
+  const setMarketplace= await normalNFT.setMarketplace(markeplace.address);
   console.log("marketplace set in normal NFT: ", setMarketplace.hash)
 
-  // // 2. Set normal NFT and Royalty storage in marketplace
-  const setInitData= markeplace.setInitData(normalNFT.address, lazyNFT.address, royaltyStorage.address)
+  // 2. Set normal NFT token and Data storage in marketplace
+  const setInitData= await markeplace.setInitData(normalNFT.address, lazyNFT.address, royaltyStorage.address)
   console.log(setInitData.hash)
 
-  
+  // 3. Set erc1155 token NFT and Data storage in marketplace
+  const setInitData_ =  await clubVirtual1155Sale.setInitData(clubVirtual1155.address, royaltyStorage.address)
+  console.log(setInitData_.hash);
 
+  // 4. 
 }
 
 main().catch((error) => {
