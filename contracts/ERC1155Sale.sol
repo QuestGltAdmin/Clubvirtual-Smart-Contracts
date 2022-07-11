@@ -541,7 +541,7 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         uint256 buyNowPrice
     );
 
-    mapping(address => mapping(uint256 => Proposal)) public buyProposal;
+    mapping(address => mapping(uint256 => mapping(address => Proposal))) public buyProposal;
     mapping(address => mapping(uint256 => mapping(address => Sale))) public nftContractSale;
 
     struct Proposal {
@@ -785,16 +785,17 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
     function acceptBuyProposal(
         address _nftContractAddress,
         uint256 _tokenId,
+        address _seller,
         uint256 _proposedPrice,
         address _proposingBuyer
     ) public {
         require(
             msg.sender ==
-                nftContractSale[_nftContractAddress][_tokenId][msg.sender].nftSeller,
+                nftContractSale[_nftContractAddress][_tokenId][_seller].nftSeller,
             "Only Seller function"
         );
-        buyProposal[_nftContractAddress][_tokenId].buyer = _proposingBuyer;
-        buyProposal[_nftContractAddress][_tokenId].price = _proposedPrice;
+        buyProposal[_nftContractAddress][_tokenId][_seller].buyer = _proposingBuyer;
+        buyProposal[_nftContractAddress][_tokenId][_seller].price = _proposedPrice;
     }
 
     function buyFromProposalERC1155(address _nftContractAddress,uint256 _tokenId, address _seller)
@@ -805,11 +806,11 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
           address seller = nftContractSale[_nftContractAddress][_tokenId][_seller]
             .nftSeller;
         require(
-            msg.sender == buyProposal[_nftContractAddress][_tokenId].buyer,
+            msg.sender == buyProposal[_nftContractAddress][_tokenId][_seller].buyer,
             "Invalid Buyer"
         );
         require(msg.sender != seller, "Seller cannot buy own NFT");
-        uint256 buyNowPrice = buyProposal[_nftContractAddress][_tokenId].price;
+        uint256 buyNowPrice = buyProposal[_nftContractAddress][_tokenId][_seller].price;
         // 1. Platform Fee
         uint256 platformFees = (buyNowPrice * (dataStorage.platformCommission())) / (10000);
         uint256 totalPayable = buyNowPrice + platformFees;
