@@ -47,7 +47,7 @@ async function main() {
 
   await clubVirtual1155.deployed();
 
-  console.log("ERC1155 Sale: ", clubVirtual1155.address);
+  console.log("ERC1155 Token: ", clubVirtual1155.address);
   console.log("Remaining balance ", (await deployer.getBalance())/1e18);
 
   // Initialize() Marketplace
