@@ -1,9 +1,9 @@
 /**
  *Submitted for verification at BscScan.com on 2022-07-08
-*/
+ */
 
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.14;
 
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
@@ -500,7 +500,6 @@ interface IDataStorage {
     function sellerCommission(address _artist) external view returns (uint16);
 }
 
-
 interface IClubVirtualERC1155 {
     function mint(
         address _to,
@@ -541,8 +540,10 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         uint256 buyNowPrice
     );
 
-    mapping(address => mapping(uint256 => mapping(address => Proposal))) public buyProposal;
-    mapping(address => mapping(uint256 => mapping(address => Sale))) public nftContractSale;
+    mapping(address => mapping(uint256 => mapping(address => Proposal)))
+        public buyProposal;
+    mapping(address => mapping(uint256 => mapping(address => Sale)))
+        public nftContractSale;
 
     struct Proposal {
         address buyer;
@@ -574,15 +575,17 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         uint256 _tokenId,
         uint256 _buyNowPrice
     ) external onlyOwner {
-        Sale storage s = nftContractSale[_nftContractAddress][_tokenId][msg.sender];
-        s.buyNowPrice= _buyNowPrice;
+        Sale storage s = nftContractSale[_nftContractAddress][_tokenId][
+            msg.sender
+        ];
+        s.buyNowPrice = _buyNowPrice;
     }
 
     // Set own NFT addresses
-    function setInitData(
-        address _platformERC1155NFT,
-        IDataStorage _dataStorage
-    ) external onlyOwner {
+    function setInitData(address _platformERC1155NFT, IDataStorage _dataStorage)
+        external
+        onlyOwner
+    {
         platformERC1155NFT = _platformERC1155NFT;
         dataStorage = _dataStorage;
     }
@@ -657,14 +660,16 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
                 _royaltyPercentage,
                 msg.sender
             );
-        }    
+        }
         // setup sale
-        Sale storage sale = nftContractSale[_nftContractAddress][_tokenId][_seller];
+        Sale storage sale = nftContractSale[_nftContractAddress][_tokenId][
+            _seller
+        ];
         sale.tokenAmount = _amountOfTokens;
         sale.nftSeller = msg.sender;
         sale.buyNowPrice = _price;
 
-        nftContractSale[_nftContractAddress][_tokenId][_seller]= sale;
+        nftContractSale[_nftContractAddress][_tokenId][_seller] = sale;
     }
 
     function createSaleERC1155(
@@ -704,20 +709,18 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         return _tokenId;
     }
 
-
-    // need: adminFees, seller, 
     function _buyNFT(
-        address _nftContractAddress, 
-        uint256 _tokenId, 
+        address _nftContractAddress,
+        uint256 _tokenId,
         address _seller,
         uint256 _totalPayable,
         uint256 _adminFees
-    )
-        internal
-    {
-        Sale storage sale = nftContractSale[_nftContractAddress][_tokenId][_seller];
+    ) internal {
+        Sale storage sale = nftContractSale[_nftContractAddress][_tokenId][
+            _seller
+        ];
         // --------- Pay and Transfer ---------- \\
-        uint256 totalPayable= _totalPayable;
+        uint256 totalPayable = _totalPayable;
         totalPayable -= _adminFees;
 
         // If there is royalty involved, pay the royalty owner
@@ -731,26 +734,36 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
                 _tokenId
             );
             // 3. Cut Royaltypercentage
-            uint royaltyAmount = (sale.buyNowPrice * (_royaltyPercentage)) / (10000);
+            uint royaltyAmount = (sale.buyNowPrice * (_royaltyPercentage)) /
+                (10000);
             totalPayable -= royaltyAmount;
             payable(royaltyOwner).transfer(royaltyAmount);
         } else {
             dataStorage.activateRoyalty(_nftContractAddress, _tokenId);
         }
         address owner = owner();
-        payable(owner).transfer(_adminFees);
-        (bool success, ) = payable(_seller).call{value: totalPayable}("");
+        (bool success, ) = payable(owner).call{value: _adminFees}("");
         if (!success) {
-            revert();
+            revert("Transfer Failed");
+        }
+        (success, ) = payable(_seller).call{value: totalPayable}("");
+        if (!success) {
+            revert("Transfer Failed");
         }
     }
 
-    function buyNFT(address _nftContractAddress , uint256 _tokenId, address _seller) public payable nonReentrant {
-        Sale storage sale = nftContractSale[_nftContractAddress][_tokenId][_seller];
+    function buyNFT(
+        address _nftContractAddress,
+        uint256 _tokenId,
+        address _seller
+    ) public payable nonReentrant {
+        Sale storage sale = nftContractSale[_nftContractAddress][_tokenId][
+            _seller
+        ];
         require(msg.sender != sale.nftSeller, "Seller cannot buy own NFT");
         // 1. Platform Fees
-        uint256 platformFees = (sale.buyNowPrice * dataStorage.platformCommission()) /
-            (10000);
+        uint256 platformFees = (sale.buyNowPrice *
+            dataStorage.platformCommission()) / (10000);
         uint256 totalPayable = sale.buyNowPrice + platformFees;
         require(msg.value >= totalPayable, "Must be greater than NFT cost");
         // update the tokenAmount
@@ -760,15 +773,24 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
             resetERC1155Sale(_nftContractAddress, _tokenId, _seller);
         }
 
-        uint256 _ownerPercentage = uint(dataStorage.sellerCommission(_seller));
+        uint256 _ownerPercentage = uint(
+            dataStorage.sellerCommission(sale.nftSeller)
+        );
 
         // 2. Cut ownerAmount from Seller
-        uint256 ownerAmount = (sale.buyNowPrice * (_ownerPercentage)) / (10000);
+        uint256 ownerAmount = (sale.buyNowPrice * _ownerPercentage) / (10000);
         // 3. Cut NFT Commission from Seller
-        uint256 nftFee = (sale.buyNowPrice * (dataStorage.nftCommission())) / (10000);
-        uint256 adminFees= ownerAmount + platformFees + nftFee;
+        uint256 nftFee = (sale.buyNowPrice * dataStorage.nftCommission()) /
+            (10000);
+        uint256 adminFees = ownerAmount + platformFees + nftFee;
         // Pay Seller
-        _buyNFT(_nftContractAddress, _tokenId, _seller, totalPayable, adminFees);
+        _buyNFT(
+            _nftContractAddress,
+            _tokenId,
+            _seller,
+            totalPayable,
+            adminFees
+        );
         // Transfer NFT
         IClubVirtualERC1155(_nftContractAddress).transferFrom(
             address(this),
@@ -778,7 +800,11 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         );
     }
 
-    function resetERC1155Sale(address _nftContractAddress, uint256 _tokenId, address _seller) internal {
+    function resetERC1155Sale(
+        address _nftContractAddress,
+        uint256 _tokenId,
+        address _seller
+    ) internal {
         delete nftContractSale[_nftContractAddress][_tokenId][_seller];
     }
 
@@ -791,48 +817,66 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
     ) public {
         require(
             msg.sender ==
-                nftContractSale[_nftContractAddress][_tokenId][_seller].nftSeller,
+                nftContractSale[_nftContractAddress][_tokenId][_seller]
+                    .nftSeller,
             "Only Seller function"
         );
-        buyProposal[_nftContractAddress][_tokenId][_seller].buyer = _proposingBuyer;
-        buyProposal[_nftContractAddress][_tokenId][_seller].price = _proposedPrice;
+        buyProposal[_nftContractAddress][_tokenId][_seller]
+            .buyer = _proposingBuyer;
+        buyProposal[_nftContractAddress][_tokenId][_seller]
+            .price = _proposedPrice;
     }
 
-    function buyFromProposalERC1155(address _nftContractAddress,uint256 _tokenId, address _seller)
-        external
-        payable
-        nonReentrant
-    {
-          address seller = nftContractSale[_nftContractAddress][_tokenId][_seller]
+    function buyFromProposalERC1155(
+        address _nftContractAddress,
+        uint256 _tokenId,
+        address _seller
+    ) external payable nonReentrant {
+        address seller = nftContractSale[_nftContractAddress][_tokenId][_seller]
             .nftSeller;
         require(
-            msg.sender == buyProposal[_nftContractAddress][_tokenId][_seller].buyer,
+            msg.sender ==
+                buyProposal[_nftContractAddress][_tokenId][_seller].buyer,
             "Invalid Buyer"
         );
         require(msg.sender != seller, "Seller cannot buy own NFT");
-        uint256 buyNowPrice = buyProposal[_nftContractAddress][_tokenId][_seller].price;
+        uint256 buyNowPrice = buyProposal[_nftContractAddress][_tokenId][
+            _seller
+        ].price;
         // 1. Platform Fee
-        uint256 platformFees = (buyNowPrice * (dataStorage.platformCommission())) / (10000);
+        uint256 platformFees = (buyNowPrice *
+            (dataStorage.platformCommission())) / (10000);
         uint256 totalPayable = buyNowPrice + platformFees;
-       
+
         require(msg.value >= totalPayable, "Must be greater than NFT cost");
-        if (nftContractSale[_nftContractAddress][_tokenId][_seller].tokenAmount > 1) {
-            nftContractSale[_nftContractAddress][_tokenId][_seller].tokenAmount -= 1;
+        if (
+            nftContractSale[_nftContractAddress][_tokenId][_seller]
+                .tokenAmount > 1
+        ) {
+            nftContractSale[_nftContractAddress][_tokenId][_seller]
+                .tokenAmount -= 1;
         } else {
-            resetERC1155Sale(_nftContractAddress,_tokenId, _seller);
+            resetERC1155Sale(_nftContractAddress, _tokenId, _seller);
         }
 
         // Pay and Transfer
         uint256 _ownerPercentage = uint(dataStorage.sellerCommission(seller));
-    
+
         // 2. Cut ownerAmount from Seller
         uint256 ownerAmount = (buyNowPrice * (_ownerPercentage)) / (10000);
         // 3. Cut NFT Commission from Seller
-        uint256 nftFee = (buyNowPrice * (dataStorage.nftCommission())) / (10000);
-        uint adminFees= platformFees + ownerAmount + nftFee;
-    
+        uint256 nftFee = (buyNowPrice * (dataStorage.nftCommission())) /
+            (10000);
+        uint adminFees = platformFees + ownerAmount + nftFee;
+
         // Pay Seller
-        _buyNFT(_nftContractAddress, _tokenId, _seller, totalPayable, adminFees);
+        _buyNFT(
+            _nftContractAddress,
+            _tokenId,
+            _seller,
+            totalPayable,
+            adminFees
+        );
         // Transfer to buyer
         IClubVirtualERC1155(_nftContractAddress).transferFrom(
             address(this),
@@ -842,12 +886,16 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         );
     }
 
-    function withdrawERC1155Sale(address _nftContractAddress ,uint256 _tokenId) external {
-        address seller = nftContractSale[_nftContractAddress][_tokenId][msg.sender]
-            .nftSeller;
+    function withdrawERC1155Sale(address _nftContractAddress, uint256 _tokenId)
+        external
+    {
+        address seller = nftContractSale[_nftContractAddress][_tokenId][
+            msg.sender
+        ].nftSeller;
         require(msg.sender == seller, "Only seller function");
-        uint256 tokenAmount = nftContractSale[_nftContractAddress][_tokenId][msg.sender]
-            .tokenAmount;
+        uint256 tokenAmount = nftContractSale[_nftContractAddress][_tokenId][
+            msg.sender
+        ].tokenAmount;
         resetERC1155Sale(_nftContractAddress, _tokenId, msg.sender);
         IClubVirtualERC1155(_nftContractAddress).transferFrom(
             address(this),
@@ -864,7 +912,8 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
     ) public {
         require(
             msg.sender ==
-                nftContractSale[platformERC1155NFT][_tokenId][msg.sender].nftSeller,
+                nftContractSale[platformERC1155NFT][_tokenId][msg.sender]
+                    .nftSeller,
             "Only Seller allowed"
         );
         nftContractSale[platformERC1155NFT][_tokenId][msg.sender]
