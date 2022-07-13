@@ -1248,7 +1248,7 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
             dataStorage.activateRoyalty(_nftContractAddress, _tokenId);
         }
         address owner = owner();
-        uint256 adminFees = ownerAmount + platformFees;
+        uint256 adminFees = ownerAmount + platformFees + nftFee;
         payable(owner).transfer(adminFees);
         (bool success, ) = payable(seller).call{value: totalAmount}("");
         if (!success) {
@@ -1323,7 +1323,7 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
             dataStorage.activateRoyalty(_nftContractAddress, _tokenId);
         }
         address owner = owner();
-        uint256 adminFees = ownerAmount + platformFees;
+        uint256 adminFees = ownerAmount + platformFees + nftFee;
         payable(owner).transfer(adminFees);
         (bool success, ) = payable(seller).call{value: totalPayable}("");
         if (!success) {
