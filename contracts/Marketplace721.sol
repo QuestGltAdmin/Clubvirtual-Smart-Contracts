@@ -568,8 +568,9 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
     }
 
     struct Bids {
-        uint256 bidAmount;
-        address ERC20Token;
+        uint256 bidAmount;  // Bid Amount
+        uint256 depositedAmt;   // Actual deposited = (Bid + platform fees) 
+        address ERC20Token; // Token used
     }
 
     modifier minimumBidNotMade(address _nftContractAddress, uint256 _tokenId) {
@@ -942,15 +943,13 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
                     .nftHighestBidder,
             "HIGHEST_BIDDER_NOT_ALLOWED"
         );
-        uint256 failedBidAmount = auctionBids[_nftContractAddress][_tokenId][
+        uint256 withdrawalAmt = auctionBids[_nftContractAddress][_tokenId][
             msg.sender
-        ].bidAmount;
-        require(failedBidAmount > 0, "NOT_ENOUGH_WITHDRAWAL");
-        // Add the platform commission to the bid amount to withdraw
-        uint256 withdrawalAmt = failedBidAmount +
-            (dataStorage.platformCommission() * failedBidAmount) /
-            10000;
+        ].depositedAmt;
 
+        require(withdrawalAmt > 0, "NOT_ENOUGH_WITHDRAWAL");
+        // Add the platform commission to the bid amount to withdraw
+        
         address erc20Token = auctionBids[_nftContractAddress][_tokenId][
             msg.sender
         ].ERC20Token;
@@ -1384,7 +1383,7 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         uint256 minBidAmount = getNextMinBid(_nftContractAddress, _tokenId);
         require(bidAmount >= minBidAmount, "BID_NOT_ENOUGH");
 
-        // final amount = bid amount + platform commission
+        // final amount = extra bid amount + platform commission
         uint256 finalAmt = _tokenAmount +
             ((dataStorage.platformCommission() * _tokenAmount) / 10000);
 
@@ -1403,6 +1402,7 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
             _tokenId,
             bidAmount
         );
+        auctionBids[_nftContractAddress][_tokenId][msg.sender].depositedAmt += finalAmt;
     }
 
     function makeBid(
