@@ -530,7 +530,7 @@ interface IClubVirtualERC1155 {
 }
 
 contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
-    IDataStorage public dataStorage; // stores royalty data
+    IDataStorage public dataStorage;
     address public platformERC1155NFT;
 
     event SaleCreated(
@@ -540,8 +540,10 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         uint256 buyNowPrice
     );
 
+    // Keeps account of all proposal for NFT purchase
     mapping(address => mapping(uint256 => mapping(address => Proposal)))
         public buyProposal;
+    // Keeps account of all NFTs put on sale
     mapping(address => mapping(uint256 => mapping(address => Sale)))
         public nftContractSale;
 
@@ -566,10 +568,11 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         _;
     }
 
-    function setPlatformNFT(address _platformERC1155NFT) public onlyOwner {
-        platformERC1155NFT = _platformERC1155NFT;
-    }
-
+    /**
+        @notice Change price of the NFT that seller put on sale
+        @dev Only the owner can change the price of the NFT put on sale
+        @param _buyNowPrice New buy price of the specified NFT token
+    */
     function changeSaleERC1155Data(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -581,7 +584,7 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         s.buyNowPrice = _buyNowPrice;
     }
 
-    // Set own NFT addresses
+    /// @notice Initial Setup Required Before This Contract Is Functional
     function setInitData(address _platformERC1155NFT, IDataStorage _dataStorage)
         external
         onlyOwner
@@ -590,6 +593,11 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         dataStorage = _dataStorage;
     }
 
+    function setPlatformNFT(address _platformERC1155NFT) public onlyOwner {
+        platformERC1155NFT = _platformERC1155NFT;
+    }
+
+    /// @dev Sets Royalty Data in DataStorage contract
     function setRoyaltyData(
         uint256 _tokenId,
         uint256 _royaltyPercentage,
@@ -604,6 +612,10 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         );
     }
 
+    /**
+        @dev Creates sale of already existing NFTs; transfers the NFT unto itself and holds until 
+        buy happens. 
+    */
     function createResaleERC1155(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -641,6 +653,14 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         );
     }
 
+    /**
+        @param _nftContractAddress Address of NFT Contract
+        @param _tokenId Token ID of the NFT
+        @param _seller Address of the Seller
+        @param _amountOfTokens Amount of tokens to be put on Sale
+        @param _price Price per token copy
+        @param _royaltyPercentage Royalty percentage
+    */
     function setupSale(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -672,6 +692,14 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         nftContractSale[_nftContractAddress][_tokenId][_seller] = sale;
     }
 
+
+    /**
+        @param  _amountOfTokens Number of tokens to mint and put on sale
+        @param  _price Price per token
+        @param  _royaltyPercentage Royalty Percentage
+        @param  _uri URI
+        @dev Mints the NFT and puts it on sale;Communicates with DataStorage and NFT Contract
+    */
     function createSaleERC1155(
         uint256 _amountOfTokens,
         uint256 _price,
@@ -709,6 +737,14 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         return _tokenId;
     }
 
+    /**
+        @dev Internal function responsible for paying the NFT Seller and the Admin
+        @param _nftContractAddress Contract address of the NFT 
+        @param _tokenId Token ID of the NFT
+        @param _seller Seller's Address
+        @param _totalPayable Total Payable Amount Including Any Fees
+        @param _adminFees Admin Fees (Platform Fee + Seller Commission + NFT Commission)
+    */
     function _buyNFT(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -741,17 +777,24 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         } else {
             dataStorage.activateRoyalty(_nftContractAddress, _tokenId);
         }
+        // Pay Admin and Seller
         address owner = owner();
         (bool success, ) = payable(owner).call{value: _adminFees}("");
         if (!success) {
             revert("Transfer Failed");
         }
+
         (success, ) = payable(_seller).call{value: totalPayable}("");
         if (!success) {
             revert("Transfer Failed");
         }
     }
 
+    /**
+        @notice Buyer can pay and buy the specified NFT
+        @dev Buyer needs to pay extra platform fee when purchasing. 
+        @param _seller Field is required because more than one people can have same NFT copies
+    */
     function buyNFT(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -808,6 +851,8 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         delete nftContractSale[_nftContractAddress][_tokenId][_seller];
     }
 
+    /// @notice Accept the buy proposal that the proposer has put
+    /// @dev Other buyers can still purchase the NFT for the normal price
     function acceptBuyProposal(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -827,6 +872,8 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
             .price = _proposedPrice;
     }
 
+    /// @notice Buyers run this function and pay the price that they initially promised in proposal
+    /// @dev Extra platform fee is to be paid on top of price. 
     function buyFromProposalERC1155(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -886,6 +933,8 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         );
     }
 
+    
+    /// @notice Seller can withdraw their sale at any time
     function withdrawERC1155Sale(address _nftContractAddress, uint256 _tokenId)
         external
     {
@@ -905,6 +954,10 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         );
     }
 
+    /** 
+        @notice Seller can change the sale data: Buy Price and Royalty Data (if not already activated)
+        @dev If the first sale happens then royalty is activated, after that royalty cannot be changed**
+    */
     function changeSaleERC1155(
         uint256 _tokenId,
         uint _buyNowPrice,
