@@ -529,6 +529,17 @@ interface IClubVirtualERC1155 {
     ) external;
 }
 
+/**
+    @title ClubVirtual contract for ERC1155 tokens sale/purchase
+    @custom:description This contract will use two other contracts 
+    1. ERC1155 Token contract: The in-house token which will be used most often.Outside tokens are also 
+    accepted.
+    2. Data Storage contract: It will store royalty data and fees data that will be applied across the 
+    marketplace.
+    
+    It will allow end users to Sell & Resell, Purchase, Change sale data, Get royalty, Withdraw Sale etc. 
+    straight from contract.
+*/
 contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
     IDataStorage public dataStorage;
     address public platformERC1155NFT;
