@@ -1211,6 +1211,7 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         );
     }
 
+    /// @notice Buy the NFT with ETH/BNB/MATIC
     function _buyNFTWithEth(address _nftContractAddress, uint256 _tokenId)
         internal
     {
@@ -1260,6 +1261,7 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         );
     }
 
+    /// @notice NFT Seller can accept the proposal
     function acceptBuyProposal(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -1275,6 +1277,8 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         buyProposal[_nftContractAddress][_tokenId].price = _proposedPrice;
     }
 
+    /// @notice Buyer will run this and buy the NFT from the proposal that he send and was accepted 
+    // by the seller.
     function buyFromProposal(address _nftContractAddress, uint256 _tokenId)
         external
         payable
@@ -1341,8 +1345,13 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         delete nftContractSale[_nftContractAddress][_tokenId];
     }
 
+    /**
+        @dev Gives the next minimum bidding amount by calculating how much amount bidder 
+        already has in the contract and how much more needs to be added based on bid increase percentage
+        @return Gives the next min extra bid.
+     */
     function getNextMinBid(address _nftContractAddress, uint256 _tokenId)
-        internal
+        public
         view
         returns (uint)
     {
@@ -1360,6 +1369,7 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         return minBidAmount;
     }
 
+    /// @dev make bid and update the data
     function _makeBid(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -1405,6 +1415,15 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         auctionBids[_nftContractAddress][_tokenId][msg.sender].depositedAmt += finalAmt;
     }
 
+    /**
+        @notice Make a bid of _tokenAmount for the auction
+        @dev Actual amount to transfer should be +platform fee greater than the _tokenAmount
+        E.g. Bid Amount= 100 ETH, Actual Amt to deposit = 110 (if platform fee= 10%)
+        Each next bid is added to the previous bid amount
+        @param _nftContractAddress Contract address of NFT Token
+        @param _tokenId TokenID of the NFT
+        @param _tokenAmount Bidding Amount
+     */
     function makeBid(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -1460,7 +1479,6 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
             _tokenId
         ].ERC20Token;
         if (_isERC20Auction(auctionERC20Token)) {
-            // pay royalty owner
             IERC20(auctionERC20Token).transfer(_recipient, _amount);
         } else {
             // attempt to send the funds to the recipient
@@ -1471,6 +1489,10 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         }
     }
 
+    /**
+        @notice Sends NFT and Amount to Buyer and Seller respectively
+        @dev The admin fees is cut extra platform fee is cut from buyer, rest from seller
+     */
     function _purchaseAndTransfer(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -1551,7 +1573,7 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         );
     }
 
-    /// @dev Settles the auction and pays the seller
+    /// @notice Settles the auction and pays the seller
     function settleAuction(address _nftContractAddress, uint256 _tokenId)
         external
         // payable
@@ -1574,6 +1596,13 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         );
     }
 
+    /**
+        @notice switch auction to sale
+        @param _nftContractAddress Address of NFT token
+        @param _erc20Token ERC20 token used in purchase
+        @param _buyNowPrice Buy now price of NFT
+        @param _royaltyPercentage Royalty percent
+     */
     function switchAuctionToSale(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -1598,6 +1627,14 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         );
     }
 
+    /**
+        @notice Switch Sale to Auction
+        @param _minPrice Minimum bidding price
+        @param _royaltyPercentage royalty percentage for NFT
+        @param _auctionBidPeriod Auction duration
+        @param _bidIncreasePercentage Percentage that next bid should increase
+        @param _auctionStartTime Seconds after which auction will start
+     */
     function switchSaleToAuction(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -1638,6 +1675,9 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         );
     }
 
+    /**
+        @notice Seller can withdraw his NFT sale
+     */
     function withdrawSale(address _nftContractAddress, uint256 _tokenId)
         external
         nonReentrant
@@ -1658,6 +1698,10 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         );
     }
 
+
+    /**
+        @notice Seller can withdraw his NFT auction anytime, any bidder will get back the bid amt
+    */
     function withdrawAuction(address _nftContractAddress, uint256 _tokenId)
         external
         nonReentrant
@@ -1667,16 +1711,6 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
             _tokenId
         ].nftSeller;
 
-        address erc20Token = nftContractAuctions[_nftContractAddress][_tokenId]
-            .ERC20Token;
-
-        address prevNftHighestBidder = nftContractAuctions[_nftContractAddress][
-            _tokenId
-        ].nftHighestBidder;
-        uint256 prevNftHighestBid = nftContractAuctions[_nftContractAddress][
-            _tokenId
-        ].nftHighestBid;
-
         // Reset values of this Auction
         _resetAuction(_nftContractAddress, _tokenId);
         IERC721(_nftContractAddress).safeTransferFrom(
@@ -1684,23 +1718,12 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
             _nftRecipient,
             _tokenId
         );
-
-        // Pay any bidder if present
-        if (prevNftHighestBidder != address(0)) {
-            if (_isERC20Auction(erc20Token)) {
-                IERC20(erc20Token).transfer(
-                    prevNftHighestBidder,
-                    prevNftHighestBid
-                );
-            } else {
-                (bool success, ) = payable(prevNftHighestBidder).call{
-                    value: prevNftHighestBid
-                }("");
-                require(success);
-            }
-        }
     }
 
+    /**
+        @notice Seller able to change min price, auction duration and royalty percentage
+        @dev Royalty percentage is changeable iff it's not active    
+    */
     function changeAuction(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -1736,6 +1759,9 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         }
     }
 
+    /**
+        @notice Seller able to change price and royalty his NFT sale
+    */
     function changeSale(
         address _nftContractAddress,
         uint256 _tokenId,
