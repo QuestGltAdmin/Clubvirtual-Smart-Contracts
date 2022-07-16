@@ -36,7 +36,7 @@ contract DataStorage is Ownable{
         uint256 _royaltyPercentage,
         address _royaltyOwner
     ) external {
-        require(msg.sender == erc1155SaleMarket || msg.sender == marketplace, "Only run on redeem");
+        require(msg.sender == erc1155SaleMarket || msg.sender == marketplace, "UNAUTORIZED");
         require(_royaltyPercentage <=2500, "ROYALTY_PERCENTAGE_EXCEEDED");
         Royalty storage _royalty;
         if(msg.sender == erc1155SaleMarket) {
