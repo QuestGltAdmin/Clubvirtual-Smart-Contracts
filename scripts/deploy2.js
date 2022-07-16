@@ -66,13 +66,15 @@ async function main() {
 
   // 2. Set normal NFT token and Data storage in marketplace
   const setInitData= await markeplace.setInitData(normalNFT.address, lazyNFT.address, royaltyStorage.address)
-  console.log(setInitData.hash)
+  console.log("ERC721 Marketplace initialized ",setInitData.hash)
 
   // 3. Set erc1155 token NFT and Data storage in marketplace
   const setInitData_ =  await clubVirtual1155Sale.setInitData(clubVirtual1155.address, royaltyStorage.address)
-  console.log(setInitData_.hash);
+  console.log("ERC1155 Sale initialized ",setInitData_.hash);
 
-  // 4. 
+  // 4. Set fees in DataStorage
+  const setFees= await royaltyStorage.editFees(deployer.address, 1000, 1000, 1000);
+  console.log("fees set", setFees.hash)
 }
 
 main().catch((error) => {
