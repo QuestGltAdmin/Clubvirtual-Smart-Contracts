@@ -1857,19 +1857,63 @@ interface IMarketplace{
     function setRoyaltyData(uint256 _tokenId, uint256 _royaltyPercentage, address _royaltyOwner) external;
 }
 
+interface IDataStorage {
+    function setRoyaltyData(
+        address _nftContractAddress,
+        uint256 _tokenId,
+        uint256 _royaltyPercentage,
+        address _royaltyOwner
+    ) external;
+
+    function nftRoyalty(address _nftContractAddress, uint256 _tokenId) external;
+
+    function activateRoyalty(address _nftContractAddress, uint _tokenId)
+        external;
+
+    function getRoyaltyPercentage(address _nftContractAddress, uint _tokenId)
+        external
+        view
+        returns (uint);
+
+    function getRoyaltyOwner(address _nftContractAddress, uint _tokenId)
+        external
+        view
+        returns (address);
+
+    function isActivated(address _nftContractAddress, uint _tokenId)
+        external
+        view
+        returns (bool);
+
+    function setRoyaltyPercentage(
+        address _nftContractAddress,
+        uint _tokenId,
+        uint256 _newPercentage
+    ) external;
+
+    function platformCommission() external view returns (uint16);
+
+    function nftCommission() external view returns (uint16);
+
+    function sellerCommission(address _artist) external view returns (uint16);
+}
+
+
 contract ClubVirtualLazyERC721 is ERC721URIStorage, EIP712, AccessControl, Ownable {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     string private constant SIGNING_DOMAIN = "ClubVirtual";
     string private constant SIGNATURE_VERSION = "1";
     IMarketplace public marketplace;
+    IDataStorage public dataStorage; // stores royalty data
 
     mapping(address => uint256) pendingWithdrawals;
 
-    constructor(address payable minter, IMarketplace _marketplace)
+    constructor(address payable minter, IMarketplace _marketplace, IDataStorage _dataStorage)
     ERC721("ClubVirtual", "ClubVirtual")
     EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION){
         _setupRole(MINTER_ROLE, minter);
         marketplace = _marketplace;
+        dataStorage = _dataStorage;
     }
 
     struct NFTVoucher {
@@ -1885,37 +1929,50 @@ contract ClubVirtualLazyERC721 is ERC721URIStorage, EIP712, AccessControl, Ownab
         NFTVoucher calldata _voucher,
         address _creator,
         address _admin,
-        uint256 _adminPercent,
-        uint256 _royaltyPercentage,
-        uint256 platformPercentage
+        uint256 _royaltyPercentage
     ) public payable returns (uint256) {
         uint256 buyNowPrice= _voucher.minPrice;
-        uint256 platformFee= (buyNowPrice * platformPercentage)/10000;
-        uint totalPayable= buyNowPrice + platformFee; 
-        require(msg.value >= totalPayable, "Paid incorrect amount");
+
+        uint256 platformFees = (buyNowPrice * (dataStorage.platformCommission())) / (10000);
+        // 1. Cut platform fees from the buyer
+        uint totalPayable= buyNowPrice + platformFees;
+        require(msg.value >= totalPayable, "INVALID_AMOUNT");
         // make sure signature is valid and get the address of the signer
         address signer = _verify(_voucher);
+        require(signer == _creator);
         _mint(signer, _voucher.tokenId);
         _setTokenURI(_voucher.tokenId, _voucher.uri);
         // transfer the token to the _redeemer
         _transfer(signer, _redeemer, _voucher.tokenId);
 
         // Record royaltyPercentage in marketplace contract
-        marketplace.setRoyaltyData(_voucher.tokenId, _royaltyPercentage, _creator);
-        // record payment to signer's withdrawal balance
-        pendingWithdrawals[signer] += msg.value;
+        marketplace.setRoyaltyData(_voucher.tokenId, _royaltyPercentage, signer);
 
-        totalPayable -= platformFee;
-        uint256 adminAmount = (buyNowPrice * _adminPercent) / 10000;
-        totalPayable -= adminAmount;
-        uint256 adminFees= adminAmount + platformFee;
-        payable(_creator).transfer(totalPayable);
+        /* ------------- CUT FEE  -------------- */
+        // 2. Cut ownerAmount from Seller
+        uint256 _ownerPercentage = uint(dataStorage.sellerCommission(signer));
+        uint256 ownerAmount = (buyNowPrice * (_ownerPercentage)) / (10000);
+        // 3. Cut NFT Commission from Seller
+        uint256 nftFee = (buyNowPrice * (dataStorage.nftCommission())) / (10000);
+
+        uint256 adminFees = platformFees + ownerAmount + nftFee;
+        totalPayable -= adminFees;
+        // Transfer
+        payable(_creator).transfer(totalPayable); 
         payable(_admin).transfer(adminFees);
+        (bool success,) = payable(_creator).call{value: totalPayable}("");
+        if(!success){
+            pendingWithdrawals[signer] += msg.value;
+        }
         return _voucher.tokenId;
     }
 
     function setMarketplace(IMarketplace _marketplace) public onlyOwner{
         marketplace = _marketplace;
+    }
+
+    function setDataStorage(IDataStorage _dataStorage) public onlyOwner{
+        dataStorage = _dataStorage;
     }
 
     function contractSafeTransferFrom(
@@ -1933,20 +1990,16 @@ contract ClubVirtualLazyERC721 is ERC721URIStorage, EIP712, AccessControl, Ownab
 
     receive() external payable {}
 
-    /// @notice Transfers all pending withdrawal balance to the caller. Reverts if the caller is not an authorized minter.
+    /// @notice Transfers all pending withdrawal balance to the caller.
     function withdraw() public {
-        require(
-            hasRole(MINTER_ROLE, msg.sender),
-            "Only authorized minters can withdraw"
-        );
-
         // IMPORTANT: casting msg.sender to a payable address is only safe if ALL members of the minter role are payable addresses.
         address payable receiver = payable(msg.sender);
 
         uint amount = pendingWithdrawals[receiver];
         // zero account before transfer to prevent re-entrancy attack
         pendingWithdrawals[receiver] = 0;
-        receiver.transfer(amount);
+        (bool success,) = payable(receiver).call{value: amount}("");
+        require(success);
     }
 
     /// @notice Retuns the amount of Ether available to the caller to withdraw.
