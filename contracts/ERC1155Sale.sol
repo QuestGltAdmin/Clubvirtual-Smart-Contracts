@@ -556,9 +556,18 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
 
     event SaleCreated(
         uint indexed tokenID,
-        address nftContract,
+        address indexed nftContract,
         address seller,
         uint256 buyNowPrice
+    );
+
+    event Buy(
+        uint indexed tokendID,
+        address indexed nftContract,
+        address seller,
+        address buyer,
+        uint256 price,
+        uint256 fees
     );
 
     // Keeps account of all proposal for NFT purchase
@@ -635,7 +644,7 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
 
     /**
         @dev Creates sale of already existing NFTs; transfers the NFT unto itself and holds until 
-        buy happens. 
+        buy/withdraw happens. 
     */
     function createResaleERC1155(
         address _nftContractAddress,
@@ -725,7 +734,7 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         uint256 _price,
         uint32 _royaltyPercentage,
         string memory _uri
-    ) external returns (uint256) {
+    ) external {
         // checks
         require(_price > 0, "Price less than 0");
         // Transfer tokens to this contract
@@ -754,7 +763,6 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
             );
         }
         emit SaleCreated(_tokenId, platformERC1155NFT, msg.sender, _price);
-        return _tokenId;
     }
 
     /**
@@ -769,6 +777,7 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         address _nftContractAddress,
         uint256 _tokenId,
         address _seller,
+        uint256 _buyNowPrice,
         uint256 _totalPayable,
         uint256 _adminFees
     ) internal {
@@ -790,7 +799,7 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
                 _tokenId
             );
             // 3. Cut Royaltypercentage
-            uint royaltyAmount = (sale.buyNowPrice * (_royaltyPercentage)) /
+            uint royaltyAmount = (_buyNowPrice * (_royaltyPercentage)) /
                 (10000);
             totalPayable -= royaltyAmount;
             payable(royaltyOwner).transfer(royaltyAmount);
@@ -808,7 +817,7 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         sellerCommission = dataStorage.getSellerCommission(sale.nftSeller);
         for (uint8 i = 0; i < sellerCommission.length; i++) {
             if (sellerCommission[i].feePercent > 0) {
-                uint256 ownerAmount = (sale.buyNowPrice *
+                uint256 ownerAmount = (_buyNowPrice *
                     (sellerCommission[i].feePercent)) / (10000);
                 totalPayable -= ownerAmount;
                 (bool _success, ) = payable(sellerCommission[i].affiliateAddr)
@@ -843,11 +852,12 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
             _seller
         ];
         require(msg.sender != sale.nftSeller, "Seller cannot buy own NFT");
+        uint buyNowPrice= sale.buyNowPrice;
         // 1. Platform Fees
-        uint256 platformFees = (sale.buyNowPrice *
+        uint256 platformFees = (buyNowPrice *
             dataStorage.platformCommission()) / (10000);
-        uint256 totalPayable = sale.buyNowPrice + platformFees;
-        require(msg.value >= totalPayable, "Must be greater than NFT cost");
+        uint256 totalPayable = buyNowPrice + platformFees;
+        require(msg.value >= totalPayable, "Amount less than cost");
         // update the tokenAmount
         if (sale.tokenAmount > 1) {
             sale.tokenAmount -= 1;
@@ -856,14 +866,17 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         }
 
         // 2. Cut NFT Commission from Seller
-        uint256 nftFee = (sale.buyNowPrice * dataStorage.nftCommission()) /
+        uint256 nftFee = (buyNowPrice * dataStorage.nftCommission()) /
             (10000);
         uint256 adminFees = platformFees + nftFee;
         // Pay Seller
+        emit Buy(_tokenId, _nftContractAddress, _seller, msg.sender, totalPayable, adminFees);
+
         _buyNFT(
             _nftContractAddress,
             _tokenId,
             _seller,
+            buyNowPrice,
             totalPayable,
             adminFees
         );
@@ -940,20 +953,17 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         }
 
         // Pay and Transfer
-        uint256 _ownerPercentage = uint(dataStorage.sellerCommission(seller));
-
-        // 2. Cut ownerAmount from Seller
-        uint256 ownerAmount = (buyNowPrice * (_ownerPercentage)) / (10000);
-        // 3. Cut NFT Commission from Seller
+        //  Cut NFT Commission from Seller
         uint256 nftFee = (buyNowPrice * (dataStorage.nftCommission())) /
             (10000);
-        uint adminFees = platformFees + ownerAmount + nftFee;
+        uint adminFees = platformFees + nftFee;
 
         // Pay Seller
         _buyNFT(
             _nftContractAddress,
             _tokenId,
             _seller,
+            buyNowPrice,
             totalPayable,
             adminFees
         );
