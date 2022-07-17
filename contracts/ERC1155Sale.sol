@@ -460,6 +460,14 @@ abstract contract ReentrancyGuard {
 }
 
 interface IDataStorage {
+
+    struct Affiliate {
+        uint16 feePercent;
+        address affiliateAddr;
+    }
+
+    function getSellerCommission(address _artist) external view returns(Affiliate[3] memory);
+
     function setRoyaltyData(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -789,6 +797,19 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
             dataStorage.activateRoyalty(_nftContractAddress, _tokenId);
         }
         // Pay Admin and Seller
+
+        // Give out seller commission
+        IDataStorage.Affiliate[3] memory sellerCommission;
+        sellerCommission = dataStorage.getSellerCommission(sale.nftSeller);
+        for(uint8 i=0; i<sellerCommission.length; i++) {
+            if(sellerCommission[i].feePercent > 0) {
+                uint256 ownerAmount = (sale.buyNowPrice * (sellerCommission[i].feePercent)) / (10000); 
+                totalPayable -= ownerAmount;
+                (bool _success, ) = payable(sellerCommission[i].affiliateAddr).call{value: ownerAmount}("");
+                require(_success, "TRANSFER_FAILED"); 
+            }    
+        }
+
         address owner = owner();
         (bool success, ) = payable(owner).call{value: _adminFees}("");
         if (!success) {
@@ -827,16 +848,10 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
             resetERC1155Sale(_nftContractAddress, _tokenId, _seller);
         }
 
-        uint256 _ownerPercentage = uint(
-            dataStorage.sellerCommission(sale.nftSeller)
-        );
-
-        // 2. Cut ownerAmount from Seller
-        uint256 ownerAmount = (sale.buyNowPrice * _ownerPercentage) / (10000);
-        // 3. Cut NFT Commission from Seller
+        // 2. Cut NFT Commission from Seller
         uint256 nftFee = (sale.buyNowPrice * dataStorage.nftCommission()) /
             (10000);
-        uint256 adminFees = ownerAmount + platformFees + nftFee;
+        uint256 adminFees = platformFees + nftFee;
         // Pay Seller
         _buyNFT(
             _nftContractAddress,
