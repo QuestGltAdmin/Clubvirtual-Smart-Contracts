@@ -460,13 +460,15 @@ abstract contract ReentrancyGuard {
 }
 
 interface IDataStorage {
-
     struct Affiliate {
         uint16 feePercent;
         address affiliateAddr;
     }
 
-    function getSellerCommission(address _artist) external view returns(Affiliate[3] memory);
+    function getSellerCommission(address _artist)
+        external
+        view
+        returns (Affiliate[3] memory);
 
     function setRoyaltyData(
         address _nftContractAddress,
@@ -711,7 +713,6 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         nftContractSale[_nftContractAddress][_tokenId][_seller] = sale;
     }
 
-
     /**
         @param  _amountOfTokens Number of tokens to mint and put on sale
         @param  _price Price per token
@@ -793,6 +794,10 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
                 (10000);
             totalPayable -= royaltyAmount;
             payable(royaltyOwner).transfer(royaltyAmount);
+            (bool _success, ) = payable(royaltyOwner).call{
+                value: royaltyAmount
+            }("");
+            require(_success);
         } else {
             dataStorage.activateRoyalty(_nftContractAddress, _tokenId);
         }
@@ -801,13 +806,15 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         // Give out seller commission
         IDataStorage.Affiliate[3] memory sellerCommission;
         sellerCommission = dataStorage.getSellerCommission(sale.nftSeller);
-        for(uint8 i=0; i<sellerCommission.length; i++) {
-            if(sellerCommission[i].feePercent > 0) {
-                uint256 ownerAmount = (sale.buyNowPrice * (sellerCommission[i].feePercent)) / (10000); 
+        for (uint8 i = 0; i < sellerCommission.length; i++) {
+            if (sellerCommission[i].feePercent > 0) {
+                uint256 ownerAmount = (sale.buyNowPrice *
+                    (sellerCommission[i].feePercent)) / (10000);
                 totalPayable -= ownerAmount;
-                (bool _success, ) = payable(sellerCommission[i].affiliateAddr).call{value: ownerAmount}("");
-                require(_success, "TRANSFER_FAILED"); 
-            }    
+                (bool _success, ) = payable(sellerCommission[i].affiliateAddr)
+                    .call{value: ownerAmount}("");
+                require(_success, "TRANSFER_FAILED");
+            }
         }
 
         address owner = owner();
@@ -899,7 +906,7 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
     }
 
     /// @notice Buyers run this function and pay the price that they initially promised in proposal
-    /// @dev Extra platform fee is to be paid on top of price. 
+    /// @dev Extra platform fee is to be paid on top of price.
     function buyFromProposalERC1155(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -959,7 +966,6 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         );
     }
 
-    
     /// @notice Seller can withdraw their sale at any time
     function withdrawERC1155Sale(address _nftContractAddress, uint256 _tokenId)
         external
