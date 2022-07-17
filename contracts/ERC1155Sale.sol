@@ -814,7 +814,7 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
 
         // Give out seller commission
         IDataStorage.Affiliate[3] memory sellerCommission;
-        sellerCommission = dataStorage.getSellerCommission(sale.nftSeller);
+        sellerCommission = dataStorage.getSellerCommission(_seller);
         for (uint8 i = 0; i < sellerCommission.length; i++) {
             if (sellerCommission[i].feePercent > 0) {
                 uint256 ownerAmount = (_buyNowPrice *
