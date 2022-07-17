@@ -23,15 +23,6 @@ async function main() {
 
   console.log("NormalNFT Token:", normalNFT.address);
 
-  //  3. Lazymint ERC721
-  const LazyNFT = await ethers.getContractFactory("ClubVirtualLazyERC721");
-  const lazyNFT = await LazyNFT.deploy(deployer.address, markeplace.address);
-
-  await lazyNFT.deployed();
-
-  console.log("LazyNFT Token:", lazyNFT.address);
-  console.log("Remaining balance ", (await deployer.getBalance())/1e18);
-
   // 4. ERC1155 Sale
   const ClubVirtual1155Sale = await ethers.getContractFactory("ClubVirtualERC1155Sale");
   const clubVirtual1155Sale = await ClubVirtual1155Sale.deploy();
@@ -59,6 +50,16 @@ async function main() {
 
   console.log("Data Storage:", royaltyStorage.address);
 
+  //  3. Lazymint ERC721
+  const LazyNFT = await ethers.getContractFactory("ClubVirtualLazyERC721");
+  const lazyNFT = await LazyNFT.deploy(deployer.address, markeplace.address, royaltyStorage.address);
+
+  await lazyNFT.deployed();
+
+  console.log("LazyNFT Token:", lazyNFT.address);
+  console.log("Remaining balance ", (await deployer.getBalance())/1e18);
+
+
   // INITIALIZE
   // 1. NFT Set Marketplace
   const setMarketplace= await normalNFT.setMarketplace(markeplace.address);
@@ -73,7 +74,7 @@ async function main() {
   console.log("ERC1155 Sale initialized ",setInitData_.hash);
 
   // 4. Set fees in DataStorage
-  const setFees= await royaltyStorage.editFees(deployer.address, 1000, 1000, 1000);
+  const setFees= await royaltyStorage.editFees(deployer.address, [[1000,"0x480F3767c52205C6b2661170D04268310EF4be82"],[1000, "0x63ae014825af4Ea0f89e4349bDFecCF26030D245"],[1000, "0xF1BB00215BB6eDa4e89DDd5879fBEbc797A67746"]], 1000, 1000);
   console.log("fees set", setFees.hash)
 }
 
