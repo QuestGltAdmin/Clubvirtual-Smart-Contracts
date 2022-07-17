@@ -1569,20 +1569,6 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         // 1. Cut platform fees from the buyer
         uint256 platformFees = (_highestBid *
             (dataStorage.platformCommission())) / (10000);
-        // 2. Cut ownerAmount from Seller
-        IDataStorage.Affiliate[3] memory sellerCommission;
-        sellerCommission = dataStorage.getSellerCommission(_nftSeller);
-
-        for (uint8 i = 0; i < sellerCommission.length; i++) {
-            if (sellerCommission[i].feePercent > 0) {
-                uint256 ownerAmount = (_highestBid *
-                    (sellerCommission[i].feePercent)) / (10000);
-                totalAmount -= ownerAmount;
-                (bool success, ) = payable(sellerCommission[i].affiliateAddr)
-                    .call{value: ownerAmount}("");
-                require(success, "TRANSFER_FAILED");
-            }
-        }
 
         // 3. Cut NFT Commission from Seller
         uint256 nftFee = (_highestBid * (dataStorage.nftCommission())) /
@@ -1619,15 +1605,44 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         uint256 adminFees = platformFees + nftFee;
         totalAmount -= nftFee;
 
+        IDataStorage.Affiliate[3] memory sellerCommission;
+        sellerCommission = dataStorage.getSellerCommission(_nftSeller);
         if (_isERC20Auction(erc20Token)) {
+            // Seller Commission to Affiliates
+            for (uint8 i = 0; i < sellerCommission.length; i++) {
+                if (sellerCommission[i].feePercent > 0) {
+                    uint256 ownerAmount = (_highestBid *
+                    (sellerCommission[i].feePercent)) / (10000);
+                        totalAmount -= ownerAmount;
+                    IERC20(erc20Token).transfer(
+                        sellerCommission[i].affiliateAddr,
+                        ownerAmount
+                    );
+                }
+            }
+            // Admin's Fee
             if (adminFees > 0) {
                 IERC20(erc20Token).transfer(owner(), adminFees);
             }
+            // Seller's Amount
             IERC20(erc20Token).transfer(_nftSeller, totalAmount);
         } else {
+            for (uint8 i = 0; i < sellerCommission.length; i++) {
+                if (sellerCommission[i].feePercent > 0) {
+                    uint256 ownerAmount = (_highestBid *
+                        (sellerCommission[i].feePercent)) / (10000);
+                    totalAmount -= ownerAmount;
+                    (bool _success, ) = payable(sellerCommission[i].affiliateAddr)
+                        .call{value: ownerAmount}("");
+                    require(_success, "TRANSFER_FAILED");
+                }
+            }
+
+            // Admin Fees
             if (adminFees > 0) {
                 payable(owner()).transfer(adminFees);
             }
+            // Seller's Amount
             (bool success, ) = payable(_nftSeller).call{value: totalAmount}("");
             if (!success) {
                 failedCredits[_nftSeller] += totalAmount;
