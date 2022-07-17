@@ -780,9 +780,6 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         uint256 _totalPayable,
         uint256 _adminFees
     ) internal {
-        Sale storage sale = nftContractSale[_nftContractAddress][_tokenId][
-            _seller
-        ];
         // --------- Pay and Transfer ---------- \\
         uint256 totalPayable = _totalPayable;
         totalPayable -= _adminFees;
