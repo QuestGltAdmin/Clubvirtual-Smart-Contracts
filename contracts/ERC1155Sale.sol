@@ -743,6 +743,7 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
             _amountOfTokens,
             _uri
         );
+
         // setup sale
         Sale storage erc1155Sale = nftContractSale[platformERC1155NFT][
             _tokenId
@@ -750,18 +751,16 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         erc1155Sale.tokenAmount = _amountOfTokens;
         erc1155Sale.nftSeller = msg.sender;
         erc1155Sale.buyNowPrice = _price;
+        
+        setupSale(
+            platformERC1155NFT,
+            _tokenId,
+            msg.sender,
+            _amountOfTokens,
+            _price,
+            _royaltyPercentage
+        );
 
-        if (
-            dataStorage.getRoyaltyOwner(platformERC1155NFT, _tokenId) ==
-            address(0)
-        ) {
-            dataStorage.setRoyaltyData(
-                platformERC1155NFT,
-                _tokenId,
-                _royaltyPercentage,
-                msg.sender
-            );
-        }
         emit SaleCreated(_tokenId, platformERC1155NFT, msg.sender, _price);
     }
 
