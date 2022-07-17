@@ -1162,11 +1162,23 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
                 erc20Token,
                 buyNowPrice
             );
+            IERC721(_nftContractAddress).safeTransferFrom(
+                address(this),
+                msg.sender,
+                _tokenId
+            );
             return;
+            
         } else {
             require(msg.value >= totalPayable, "Must be greater than NFT cost");
         }
         _buyNFTWithEth(_nftContractAddress, _tokenId);
+
+        IERC721(_nftContractAddress).safeTransferFrom(
+            address(this),
+            msg.sender,
+            _tokenId
+        );
     }
 
     function _buyNFTWithERC20(
@@ -1217,11 +1229,6 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         uint256 adminFees = platformFees + nftFee;
         IERC20(_erc20Token).transferFrom(msg.sender, owner, adminFees);
         IERC20(_erc20Token).transferFrom(msg.sender, _seller, totalAmount);
-        IERC721(_nftContractAddress).safeTransferFrom(
-            address(this),
-            msg.sender,
-            _tokenId
-        );
     }
 
     /// @notice Buy the NFT with ETH/BNB/MATIC
@@ -1276,11 +1283,7 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         if (!success) {
             revert();
         }
-        IERC721(_nftContractAddress).safeTransferFrom(
-            address(this),
-            msg.sender,
-            _tokenId
-        );
+        
     }
 
     /// @notice NFT Seller can accept the proposal
