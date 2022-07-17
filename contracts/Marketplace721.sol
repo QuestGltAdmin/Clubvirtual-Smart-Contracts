@@ -456,6 +456,13 @@ abstract contract ReentrancyGuard {
 }
 
 interface IDataStorage {
+    struct Affiliate {
+        uint16 feePercent;
+        address affiliateAddr;
+    }
+
+    function getSellerCommission(address _artist) external view returns(Affiliate[3] memory);
+
     function setRoyaltyData(
         address _nftContractAddress,
         uint256 _tokenId,
@@ -492,8 +499,6 @@ interface IDataStorage {
     function platformCommission() external view returns (uint16);
 
     function nftCommission() external view returns (uint16);
-
-    function sellerCommission(address _artist) external view returns (uint16);
 }
 
 contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
@@ -1173,11 +1178,19 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
     ) internal {
         uint totalAmount = _buyNowPrice;
 
-        uint256 _ownerPercentage = uint(dataStorage.sellerCommission(_seller));
         // 1. Cut platform fees from the buyer
         uint256 platformFees = (totalAmount * (dataStorage.platformCommission())) / (10000);
         // 2. Cut ownerAmount from Seller
-        uint256 ownerAmount = (totalAmount * (_ownerPercentage)) / (10000);
+        IDataStorage.Affiliate[3] memory sellerCommission;
+        sellerCommission = dataStorage.getSellerCommission(_seller);
+        for(uint8 i=0; i<sellerCommission.length; i++) {
+            if(sellerCommission[i].feePercent > 0) {
+                uint256 ownerAmount = (totalAmount * (sellerCommission[i].feePercent)) / (10000); 
+                totalAmount -= ownerAmount;
+                (bool success, ) = payable(sellerCommission[i].affiliateAddr).call{value: ownerAmount}("");
+                require(success, "TRANSFER_FAILED"); 
+            }    
+        }
         // 3. Cut NFT Commission from Seller
         uint256 nftFee = (totalAmount * (dataStorage.nftCommission())) / (10000);
 
@@ -1199,9 +1212,9 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         } else {
             dataStorage.activateRoyalty(_nftContractAddress, _tokenId);
         }
-        totalAmount -= (ownerAmount + nftFee);
+        totalAmount -= nftFee;
         address owner = owner();
-        uint256 adminFees = platformFees + ownerAmount + nftFee;
+        uint256 adminFees = platformFees + nftFee;
         IERC20(_erc20Token).transferFrom(msg.sender, owner, adminFees);
         IERC20(_erc20Token).transferFrom(msg.sender, _seller, totalAmount);
         IERC721(_nftContractAddress).safeTransferFrom(
@@ -1223,11 +1236,20 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         uint256 platformFees = (buyNowPrice * (dataStorage.platformCommission())) / (10000);
         totalAmount -= platformFees;
         // 2. Cut ownerAmount from Seller
-        uint256 sellerFeePercent = uint(dataStorage.sellerCommission(seller));
-        uint256 ownerAmount = (buyNowPrice * (sellerFeePercent)) / (10000);
+        IDataStorage.Affiliate[3] memory sellerCommission;
+        sellerCommission = dataStorage.getSellerCommission(seller);
+        for(uint8 i=0; i<sellerCommission.length; i++) {
+            if(sellerCommission[i].feePercent > 0) {
+                uint256 ownerAmount = (totalAmount * (sellerCommission[i].feePercent)) / (10000); 
+                totalAmount -= ownerAmount;
+                (bool _success, ) = payable(sellerCommission[i].affiliateAddr).call{value: ownerAmount}("");
+                require(_success, "TRANSFER_FAILED"); 
+            }    
+        }
+
         // 3. Cut NFT Commission from Seller
         uint256 nftFee = (totalAmount * (dataStorage.nftCommission())) / (10000);
-        totalAmount -= (ownerAmount + nftFee);
+        totalAmount -= nftFee;
         // Reset Sale Data
         _resetSale(_nftContractAddress, _tokenId);
         // Check Royalty Applicable
@@ -1248,7 +1270,7 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
             dataStorage.activateRoyalty(_nftContractAddress, _tokenId);
         }
         address owner = owner();
-        uint256 adminFees = ownerAmount + platformFees + nftFee;
+        uint256 adminFees = platformFees + nftFee;
         payable(owner).transfer(adminFees);
         (bool success, ) = payable(seller).call{value: totalAmount}("");
         if (!success) {
@@ -1298,14 +1320,22 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
 
         require(msg.value >= totalPayable, "Must be greater than NFT cost");
 
-        uint256 _ownerPercentage = uint(dataStorage.sellerCommission(seller));
         // 2. Cut ownerAmount from Seller
-        uint256 ownerAmount = (buyNowPrice * (_ownerPercentage)) / (10000);
+        IDataStorage.Affiliate[3] memory sellerCommission;
+        sellerCommission = dataStorage.getSellerCommission(seller);
+        for(uint8 i=0; i<sellerCommission.length; i++) {
+            if(sellerCommission[i].feePercent > 0) {
+                uint256 ownerAmount = (buyNowPrice * (sellerCommission[i].feePercent)) / (10000); 
+                buyNowPrice -= ownerAmount;
+                (bool _success, ) = payable(sellerCommission[i].affiliateAddr).call{value: ownerAmount}("");
+                require(_success, "TRANSFER_FAILED"); 
+            }    
+        }
         // 3. Cut NFT Commission from Seller
         uint256 nftFee = (buyNowPrice * (dataStorage.nftCommission())) / (10000);
 
         // update total payable to seller
-        totalPayable = totalPayable - (platformFees + ownerAmount + nftFee);
+        totalPayable = totalPayable - (platformFees + buyNowPrice + nftFee);
 
         // Reset Sale Data
         _resetSale(_nftContractAddress, _tokenId);
@@ -1326,7 +1356,7 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
             dataStorage.activateRoyalty(_nftContractAddress, _tokenId);
         }
         address owner = owner();
-        uint256 adminFees = ownerAmount + platformFees + nftFee;
+        uint256 adminFees = platformFees + nftFee;
         payable(owner).transfer(adminFees);
         (bool success, ) = payable(seller).call{value: totalPayable}("");
         if (!success) {
@@ -1504,13 +1534,22 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         address _nftRecipient = nftContractAuctions[_nftContractAddress][
             _tokenId
         ].nftHighestBidder;
-        uint256 _ownerPercentage = uint(dataStorage.sellerCommission(_nftSeller));
-
         uint totalAmount = _highestBid;
         // 1. Cut platform fees from the buyer
         uint256 platformFees = (totalAmount * (dataStorage.platformCommission())) / (10000);
         // 2. Cut ownerAmount from Seller
-        uint256 ownerAmount = (totalAmount * (_ownerPercentage)) / (10000);
+        IDataStorage.Affiliate[3] memory sellerCommission;
+        sellerCommission = dataStorage.getSellerCommission(_nftSeller);
+
+        for(uint8 i=0; i<sellerCommission.length; i++) {
+            if(sellerCommission[i].feePercent > 0) {
+                uint256 ownerAmount = (totalAmount * (sellerCommission[i].feePercent)) / (10000); 
+                totalAmount -= ownerAmount;
+                (bool success, ) = payable(sellerCommission[i].affiliateAddr).call{value: ownerAmount}("");
+                require(success, "TRANSFER_FAILED"); 
+            }    
+        }
+
         // 3. Cut NFT Commission from Seller
         uint256 nftFee = (totalAmount * (dataStorage.nftCommission())) / (10000);
 
@@ -1541,9 +1580,9 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         } else {
             dataStorage.activateRoyalty(_nftContractAddress, _tokenId);
         }
-        totalAmount -= (ownerAmount + nftFee);
 
-        uint256 adminFees = platformFees + ownerAmount + nftFee;
+        uint256 adminFees = platformFees + nftFee;
+        totalAmount -= nftFee;
 
         if (_isERC20Auction(erc20Token)) {
             if (adminFees > 0) {
