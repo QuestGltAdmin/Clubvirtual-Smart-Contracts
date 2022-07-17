@@ -15,10 +15,15 @@ contract DataStorage is Ownable{
         bool activated;
     }
 
+    struct Affiliate {
+        uint16 feePercent;
+        address affiliateAddr;
+    }
+
     // keeps account of all Royalty data 
     mapping(address => mapping(uint256 => Royalty)) public nftRoyalty;
     // keeps account of all commission charges
-    mapping(address => uint16) public sellerCommission;
+    mapping(address => Affiliate[3]) public sellerCommission;
 
     modifier notZeroAddress(address _address) {
         require(_address != address(0), "Given zero address");
@@ -53,13 +58,20 @@ contract DataStorage is Ownable{
 
     function editFees(
         address _artist,
-        uint16 _ownerPercent,
+        Affiliate[3] memory _a,
         uint16 _platformFee,
         uint16 _nftCommission
     ) external onlyOwner notZeroAddress(_artist) {
-        if (sellerCommission[_artist] != _ownerPercent) {
-            sellerCommission[_artist] = uint16(_ownerPercent);
+        
+        // seller commission
+        if(_a.length > 0){
+            Affiliate[3] storage a = sellerCommission[_artist]; 
+            for(uint8 i=0; i<3; i++){
+                a[i].feePercent = _a[i].feePercent;
+                a[i].affiliateAddr = _a[i].affiliateAddr;
+            }
         }
+
         if (platformCommission != _platformFee) {
             platformCommission = _platformFee;
         }
@@ -90,6 +102,10 @@ contract DataStorage is Ownable{
 
     function getRoyaltyOwner(address _nftContractAddress, uint _tokenId) external view returns (address){
         return nftRoyalty[_nftContractAddress][_tokenId].royaltyOwner;
+    }
+
+    function getSellerCommission(address _artist) public view returns(Affiliate[3] memory) {
+        return sellerCommission[_artist];
     }
 
     function isActivated(address _nftContractAddress, uint _tokenId) external view returns (bool){
