@@ -773,8 +773,12 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         uint256 _adminFees
     ) internal {
         // --------- Pay and Transfer ---------- \\
-        uint256 totalPayable = _totalPayable;
-        totalPayable -= _adminFees;
+        uint256 totalAmount = _totalPayable;
+        address owner = owner();
+        (bool success, ) = payable(owner).call{value: _adminFees}("");
+        if (!success) {
+            revert("Transfer Failed to Admin");
+        }
 
         // If there is royalty involved, pay the royalty owner
         if (dataStorage.isActivated(_nftContractAddress, _tokenId)) {
@@ -789,7 +793,7 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
             // 3. Cut Royaltypercentage
             uint royaltyAmount = (_buyNowPrice * (_royaltyPercentage)) /
                 (10000);
-            totalPayable -= royaltyAmount;
+            totalAmount -= royaltyAmount;
             payable(royaltyOwner).transfer(royaltyAmount);
             (bool _success, ) = payable(royaltyOwner).call{
                 value: royaltyAmount
@@ -798,8 +802,6 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         } else {
             dataStorage.activateRoyalty(_nftContractAddress, _tokenId);
         }
-        // Pay Admin and Seller
-
         // Give out seller commission
         IDataStorage.Affiliate[3] memory sellerCommission;
         sellerCommission = dataStorage.getSellerCommission(_seller);
@@ -807,23 +809,19 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
             if (sellerCommission[i].feePercent > 0) {
                 uint256 ownerAmount = (_buyNowPrice *
                     (sellerCommission[i].feePercent)) / (10000);
-                totalPayable -= ownerAmount;
+                totalAmount -= ownerAmount;
                 (bool _success, ) = payable(sellerCommission[i].affiliateAddr)
                     .call{value: ownerAmount}("");
-                require(_success, "TRANSFER_FAILED");
+                require(_success, "Transfer Failed to Affiliate");
             }
         }
 
-        address owner = owner();
-        (bool success, ) = payable(owner).call{value: _adminFees}("");
-        if (!success) {
-            revert("Transfer Failed");
+        totalAmount = totalAmount - _adminFees;
+        (bool success_, ) = payable(_seller).call{value: totalAmount}("");
+        if (!success_) {
+            revert("Transfer Failed to Seller");
         }
 
-        (success, ) = payable(_seller).call{value: totalPayable}("");
-        if (!success) {
-            revert("Transfer Failed");
-        }
     }
 
     /**
@@ -839,6 +837,8 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
         Sale storage sale = nftContractSale[_nftContractAddress][_tokenId][
             _seller
         ];
+        // Check if sale exists
+        require(sale.buyNowPrice>0, "INVALID_SALE");
         require(msg.sender != sale.nftSeller, "Seller cannot buy own NFT");
         uint buyNowPrice= sale.buyNowPrice;
         // 1. Platform Fees
@@ -858,16 +858,55 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
             (10000);
         uint256 adminFees = platformFees + nftFee;
         // Pay Seller
-        emit Buy(_tokenId, _nftContractAddress, _seller, msg.sender, totalPayable, adminFees);
+        
+        address owner = owner();
+        (bool success, ) = payable(owner).call{value: adminFees}("");
+        if (!success) {
+            revert("Transfer Failed to Admin");
+        }
 
-        _buyNFT(
-            _nftContractAddress,
-            _tokenId,
-            _seller,
-            buyNowPrice,
-            totalPayable,
-            adminFees
-        );
+        // If there is royalty involved, pay the royalty owner
+        if (dataStorage.isActivated(_nftContractAddress, _tokenId)) {
+            address royaltyOwner = dataStorage.getRoyaltyOwner(
+                _nftContractAddress,
+                _tokenId
+            );
+            uint _royaltyPercentage = dataStorage.getRoyaltyPercentage(
+                _nftContractAddress,
+                _tokenId
+            );
+            // 3. Cut Royaltypercentage
+            uint royaltyAmount = (buyNowPrice * (_royaltyPercentage)) /
+                (10000);
+            totalPayable -= royaltyAmount;
+            payable(royaltyOwner).transfer(royaltyAmount);
+            (bool _success, ) = payable(royaltyOwner).call{
+                value: royaltyAmount
+            }("");
+            require(_success);
+        } else {
+            dataStorage.activateRoyalty(_nftContractAddress, _tokenId);
+        }
+        // Give out seller commission
+        IDataStorage.Affiliate[3] memory sellerCommission;
+        sellerCommission = dataStorage.getSellerCommission(_seller);
+        for (uint8 i = 0; i < sellerCommission.length; i++) {
+            if (sellerCommission[i].feePercent > 0) {
+                uint256 ownerAmount = (buyNowPrice *
+                    (sellerCommission[i].feePercent)) / (10000);
+                totalPayable -= ownerAmount;
+                (bool _success, ) = payable(sellerCommission[i].affiliateAddr)
+                    .call{value: ownerAmount}("");
+                require(_success, "Transfer Failed to Affiliate");
+            }
+        }
+
+        totalPayable = totalPayable - adminFees;
+        (bool success_, ) = payable(_seller).call{value: totalPayable}("");
+        if (!success_) {
+            revert("Transfer Failed to Seller");
+        }
+
         // Transfer NFT
         IClubVirtualERC1155(_nftContractAddress).transferFrom(
             address(this),
@@ -875,6 +914,8 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
             _tokenId,
             1
         );
+        emit Buy(_tokenId, _nftContractAddress, _seller, msg.sender, totalPayable, adminFees);
+
     }
 
     function resetERC1155Sale(
