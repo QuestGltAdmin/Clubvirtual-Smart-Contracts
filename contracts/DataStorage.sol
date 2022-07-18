@@ -44,13 +44,7 @@ contract DataStorage is Ownable{
         require(msg.sender == erc1155SaleMarket || msg.sender == marketplace, "UNAUTORIZED");
         require(_royaltyPercentage <=2500, "ROYALTY_PERCENTAGE_EXCEEDED");
         Royalty storage _royalty;
-        if(msg.sender == erc1155SaleMarket) {
-             _royalty = nftRoyalty[erc1155SaleMarket][_tokenId];
-        }
-        else{
-            _royalty = nftRoyalty[_nftContractAddress][_tokenId];
-        }
-        
+        _royalty = nftRoyalty[_nftContractAddress][_tokenId];
         _royalty.royaltyOwner = _royaltyOwner;
         _royalty.royaltyPercentage = _royaltyPercentage;
         _royalty.activated = false;

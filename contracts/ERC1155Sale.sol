@@ -744,14 +744,6 @@ contract ClubVirtualERC1155Sale is Ownable, ReentrancyGuard {
             _uri
         );
 
-        // setup sale
-        Sale storage erc1155Sale = nftContractSale[platformERC1155NFT][
-            _tokenId
-        ][msg.sender];
-        erc1155Sale.tokenAmount = _amountOfTokens;
-        erc1155Sale.nftSeller = msg.sender;
-        erc1155Sale.buyNowPrice = _price;
-        
         setupSale(
             platformERC1155NFT,
             _tokenId,
