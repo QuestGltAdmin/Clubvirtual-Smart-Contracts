@@ -35,6 +35,21 @@ contract DataStorage is Ownable{
         marketplace= _marketplace;
     }
 
+    function setBatchRoyaltyData(
+        address[] memory _nftContractAddress,
+        uint256[] memory _tokenId,
+        uint256[] memory _royaltyPercentage,
+        address[] memory _royaltyOwner
+    ) public onlyOwner {
+        for(uint i=0; i<_royaltyOwner.length; i++) {
+            Royalty storage _royalty;
+            _royalty = nftRoyalty[_nftContractAddress[i]][_tokenId[i]];
+            _royalty.royaltyOwner = _royaltyOwner[i];
+            _royalty.royaltyPercentage = _royaltyPercentage[i];
+            _royalty.activated = true;
+        }
+    }
+
     function setRoyaltyData(
         address _nftContractAddress,
         uint256 _tokenId,
