@@ -1495,7 +1495,11 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         nonReentrant
         auctionOngoing(_nftContractAddress, _tokenId)
     {
-        // if the auction has started
+        require(
+            nftContractAuctions[_nftContractAddress][_tokenId]
+                .nftHighestBidder != msg.sender,
+            "Cannot bid again"
+        );
         require(
             nftContractAuctions[_nftContractAddress][_tokenId]
                 .auctionStartTime < block.timestamp,
@@ -1510,10 +1514,16 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
         address _erc20Token = nftContractAuctions[_nftContractAddress][_tokenId]
             .ERC20Token;
         // bid more than minimum price
-        require(
-            (_tokenAmount >= minPrice) || (msg.value >= minPrice),
-            "Must be greater than minimum amount"
-        );
+        if (
+            nftContractAuctions[_nftContractAddress][_tokenId].nftHighestBid ==
+            0
+        ) {
+            require(
+                (_tokenAmount >= minPrice) || (msg.value >= minPrice),
+                "Must be greater than minimum amount"
+            );
+        }
+
         _makeBid(_nftContractAddress, _tokenId, _erc20Token, _tokenAmount);
         // Save Bidding Data
         auctionBids[_nftContractAddress][_tokenId][msg.sender]
@@ -1612,8 +1622,8 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
             for (uint8 i = 0; i < sellerCommission.length; i++) {
                 if (sellerCommission[i].feePercent > 0) {
                     uint256 ownerAmount = (_highestBid *
-                    (sellerCommission[i].feePercent)) / (10000);
-                        totalAmount -= ownerAmount;
+                        (sellerCommission[i].feePercent)) / (10000);
+                    totalAmount -= ownerAmount;
                     IERC20(erc20Token).transfer(
                         sellerCommission[i].affiliateAddr,
                         ownerAmount
@@ -1632,8 +1642,9 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
                     uint256 ownerAmount = (_highestBid *
                         (sellerCommission[i].feePercent)) / (10000);
                     totalAmount -= ownerAmount;
-                    (bool _success, ) = payable(sellerCommission[i].affiliateAddr)
-                        .call{value: ownerAmount}("");
+                    (bool _success, ) = payable(
+                        sellerCommission[i].affiliateAddr
+                    ).call{value: ownerAmount}("");
                     require(_success, "TRANSFER_FAILED");
                 }
             }
@@ -1788,12 +1799,53 @@ contract ClubVirtualMarketplaceERC721 is Ownable, ReentrancyGuard {
     }
 
     /**
+        @notice Admin can remove the specified NFT from sale
+     */
+    function removeFromSale(address _nftContractAddress, uint256 _tokenId)
+        external
+        nonReentrant
+        onlyOwner
+    {
+        address nftSeller = nftContractSale[_nftContractAddress][_tokenId]
+            .nftSeller;
+        // reset sale
+        _resetSale(_nftContractAddress, _tokenId);
+        // transfer the NFT back to the Seller
+        IERC721(_nftContractAddress).safeTransferFrom(
+            address(this),
+            nftSeller,
+            _tokenId
+        );
+    }
+
+    /**
         @notice Seller can withdraw his NFT auction anytime, any bidder will get back the bid amt
     */
     function withdrawAuction(address _nftContractAddress, uint256 _tokenId)
         external
         nonReentrant
         onlyNftSeller(_nftContractAddress, _tokenId)
+    {
+        address _nftRecipient = nftContractAuctions[_nftContractAddress][
+            _tokenId
+        ].nftSeller;
+
+        // Reset values of this Auction
+        _resetAuction(_nftContractAddress, _tokenId);
+        IERC721(_nftContractAddress).safeTransferFrom(
+            address(this),
+            _nftRecipient,
+            _tokenId
+        );
+    }
+
+    /**
+        @notice Seller can withdraw his NFT auction anytime, any bidder will get back the bid amt
+    */
+    function removeFromAuction(address _nftContractAddress, uint256 _tokenId)
+        external
+        nonReentrant
+        onlyOwner
     {
         address _nftRecipient = nftContractAuctions[_nftContractAddress][
             _tokenId

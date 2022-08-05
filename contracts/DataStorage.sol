@@ -9,6 +9,13 @@ contract DataStorage is Ownable{
     address erc1155SaleMarket;
     address marketplace;
 
+    event RoyaltyEvent(
+        address nftContract,
+        uint256 tokenId,
+        address royaltyOwner,
+        uint256 royaltyPercentage
+    );
+
     struct Royalty {
         address royaltyOwner;
         uint256 royaltyPercentage;
@@ -24,11 +31,6 @@ contract DataStorage is Ownable{
     mapping(address => mapping(uint256 => Royalty)) public nftRoyalty;
     // keeps account of all commission charges
     mapping(address => Affiliate[3]) public sellerCommission;
-
-    modifier notZeroAddress(address _address) {
-        require(_address != address(0), "Given zero address");
-        _;
-    }
 
     constructor(address _erc1155SaleMarket, address _marketplace ){
         erc1155SaleMarket = _erc1155SaleMarket;
@@ -63,6 +65,7 @@ contract DataStorage is Ownable{
         _royalty.royaltyOwner = _royaltyOwner;
         _royalty.royaltyPercentage = _royaltyPercentage;
         _royalty.activated = false;
+        emit RoyaltyEvent(_nftContractAddress, _tokenId, _royaltyOwner, _royaltyPercentage);
     }
 
     function editFees(
@@ -70,7 +73,7 @@ contract DataStorage is Ownable{
         Affiliate[3] memory _a,
         uint16 _platformFee,
         uint16 _nftCommission
-    ) external onlyOwner notZeroAddress(_artist) {
+    ) external onlyOwner {
         
         // seller commission
         if(_a.length > 0){
