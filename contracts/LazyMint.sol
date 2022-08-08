@@ -1939,7 +1939,7 @@ contract ClubVirtualLazyERC721 is ERC721URIStorage, EIP712, AccessControl, Ownab
         require(msg.value >= totalPayable, "INVALID_AMOUNT");
         // make sure signature is valid and get the address of the signer
         address signer = _verify(_voucher);
-        require(signer == _creator, "Signer is not the creator");
+        // require(signer == _creator, "Signer is not the creator");
         _mint(signer, _voucher.tokenId);
         _setTokenURI(_voucher.tokenId, _voucher.uri);
         // transfer the token to the _redeemer
